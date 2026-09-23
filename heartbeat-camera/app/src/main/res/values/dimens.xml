@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  V15 设计 Token · 尺寸
+
+  间距一律走 4pt 网格（4 / 8 / 12 / 16 / 20 / 24 / 32）。
+  页面左右边距**统一 16dp**，不出现 20dp 与 16dp 混用。
+-->
+<resources>
+
+    <!-- ===== 间距 · 4pt 网格 ===== -->
+    <dimen name="sp_1">4dp</dimen>
+    <dimen name="sp_2">8dp</dimen>
+    <dimen name="sp_3">12dp</dimen>
+    <dimen name="sp_4">16dp</dimen>
+    <dimen name="sp_5">20dp</dimen>
+    <dimen name="sp_6">24dp</dimen>
+    <dimen name="sp_8">32dp</dimen>
+
+    <!-- ===== 圆角（约组件高度的 1/4） ===== -->
+    <dimen name="radius_input">8dp</dimen>
+    <dimen name="radius_btn">12dp</dimen>
+    <dimen name="radius_card">16dp</dimen>
+    <dimen name="radius_sheet">24dp</dimen>
+    <dimen name="radius_pill">999dp</dimen>
+
+    <!-- ===== 关键尺寸 ===== -->
+    <dimen name="page_padding">16dp</dimen>
+    <dimen name="appbar_h">52dp</dimen>
+    <dimen name="tabbar_h">62dp</dimen>
+    <dimen name="touch_min">48dp</dimen>
+    <dimen name="btn_h">46dp</dimen>
+    <dimen name="btn_h_lg">56dp</dimen>
+    <dimen name="list_row_min_h">52dp</dimen>
+    <dimen name="pill_h">26dp</dimen>
+    <dimen name="collapse_row_h">56dp</dimen>
+
+    <!-- ===== 控制台专有 ===== -->
+    <!-- 心率环：212dp，环宽 13dp。起角 150°、扫角 240°，缺口在正下方 -->
+    <dimen name="hr_ring_size">212dp</dimen>
+    <dimen name="hr_ring_stroke">13dp</dimen>
+    <dimen name="zone_band_h">44dp</dimen>
+
+    <!-- ===== 字号（正文 14，标签 12，说明 11，心率 60） ===== -->
+    <dimen name="fs_display">60sp</dimen>
+    <dimen name="fs_h1">20sp</dimen>
+    <dimen name="fs_h2">16sp</dimen>
+    <dimen name="fs_body">14sp</dimen>
+    <dimen name="fs_label">12sp</dimen>
+    <dimen name="fs_caption">11sp</dimen>
+    <dimen name="fs_terminal">10.5sp</dimen>
+
+</resources>

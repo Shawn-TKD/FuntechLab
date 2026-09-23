@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  V15 四 Tab 信息架构。
+
+  与 V14 的差别：日志从页顶第 5 个区块挪到「诊断」独立 Tab ——
+  它是排障信息，正常使用时不该占据首屏。
+-->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/tab_console"
+        android:icon="@drawable/ic_tab_console"
+        android:title="控制台" />
+    <item
+        android:id="@+id/tab_media"
+        android:icon="@drawable/ic_tab_media"
+        android:title="素材" />
+    <item
+        android:id="@+id/tab_settings"
+        android:icon="@drawable/ic_tab_settings"
+        android:title="设置" />
+    <item
+        android:id="@+id/tab_diag"
+        android:icon="@drawable/ic_tab_diag"
+        android:title="诊断" />
+</menu>

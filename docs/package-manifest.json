@@ -1,0 +1,457 @@
+[
+  {
+    "path": "daydreamer-agent/.env.example",
+    "bytes": 524,
+    "sha256": "400ce5008e5dbfad1702c353a12a783d236dd9e242694eca510497acb7f2c429"
+  },
+  {
+    "path": "daydreamer-agent/.gitignore",
+    "bytes": 298,
+    "sha256": "46dfc6cfd0e75a134f812011184e0df4f0860eec8d3dacf206b84ba85692ca0d"
+  },
+  {
+    "path": "daydreamer-agent/README.md",
+    "bytes": 19067,
+    "sha256": "db7afbafeb0594f87726bd7ac36b3d56a597da0d0439e0f45f63fa7a6f79b438"
+  },
+  {
+    "path": "daydreamer-agent/config/default.toml",
+    "bytes": 1914,
+    "sha256": "9cc77f2ac0b81ae65b35a7f7029c64fe8ca0018df35d5344ee145cda83aae38b"
+  },
+  {
+    "path": "daydreamer-agent/daydreamer.cmd",
+    "bytes": 117,
+    "sha256": "7f85862bce43c990d43b222cc89494c46b17ecd11199b4a183c2dbdff679f444"
+  },
+  {
+    "path": "daydreamer-agent/daydreamer.ps1",
+    "bytes": 2553,
+    "sha256": "da7acc9f1ce666e358a17cd07048c8288946ca34d161af74684dd88cdb2582a6"
+  },
+  {
+    "path": "daydreamer-agent/daydreamer.py",
+    "bytes": 269,
+    "sha256": "53371bbca82a7f606775caffb9a1177f3a62054d96825fe124a2d5e400d2ca09"
+  },
+  {
+    "path": "daydreamer-agent/deploy/daydreamer-api.service",
+    "bytes": 463,
+    "sha256": "382aa5059b9c077c5027c52c437fea8baf42709acd6a88945e2e71cc508b1234"
+  },
+  {
+    "path": "daydreamer-agent/deploy/daydreamer-cert-renew.service",
+    "bytes": 195,
+    "sha256": "b74fd2bed4017df3662288570dab7dda32c0439df6f62aa7ad9b0822008e1809"
+  },
+  {
+    "path": "daydreamer-agent/deploy/daydreamer-cert-renew.timer",
+    "bytes": 175,
+    "sha256": "ad40cbed726ae9a052ad214350372e57ba39da85e945f77d1095e85c9a181ac6"
+  },
+  {
+    "path": "daydreamer-agent/deploy/daydreamer-worker.service",
+    "bytes": 591,
+    "sha256": "23ad2579273ab5769a0fbd72b86569f6f756cad9e80174e6e39c70f6a265b6e4"
+  },
+  {
+    "path": "daydreamer-agent/deploy/install.sh",
+    "bytes": 1070,
+    "sha256": "7e3c331bff56b2c6ba4cebbbcafc1ff9ae3cb5d3af01ab06fb4f93e6f055d461"
+  },
+  {
+    "path": "daydreamer-agent/deploy/nginx.conf",
+    "bytes": 1266,
+    "sha256": "6b3ff021f31bb93e479c22ee20f165d521df868d4fe1a1d5cca6610423de22af"
+  },
+  {
+    "path": "daydreamer-agent/deploy/package.py",
+    "bytes": 2232,
+    "sha256": "27f5f35e3c15fd1bd8a90ddad9edbb44fae18c9ac7a3c81ef753ee98cddf8bb9"
+  },
+  {
+    "path": "daydreamer-agent/deploy/web/config.js",
+    "bytes": 1754,
+    "sha256": "72a438f0b17882db0eccebba0a61bce37dd5c34d767fea251f96741534e97dd6"
+  },
+  {
+    "path": "daydreamer-agent/deploy/web/connect.html",
+    "bytes": 772,
+    "sha256": "cb596623488e3484a3562755c0d2b19880fdbbc623d9fad01fa05ac555bba230"
+  },
+  {
+    "path": "daydreamer-agent/deploy/web/connect.js",
+    "bytes": 987,
+    "sha256": "4728f3c3a603fb692610151f0a4147234da7b2fd1048e70baa721e478312cf64"
+  },
+  {
+    "path": "daydreamer-agent/deploy/web/mobile.css",
+    "bytes": 1158,
+    "sha256": "2e49e866434fe8eac90e7e4f3c9548edbea61a091cb99cd1c72b8a36572a464e"
+  },
+  {
+    "path": "daydreamer-agent/deploy/web/upload.html",
+    "bytes": 954,
+    "sha256": "f9d42bcee7c62a0ffe782bb67a1613da9b0bf5fc578822cecdfbee9899e3b1b7"
+  },
+  {
+    "path": "daydreamer-agent/deploy/web/upload.js",
+    "bytes": 3929,
+    "sha256": "8dd50d8944c5c41838a32720ca60026ff5cfa6f3cea7ff0d63e50969fc5e8e7b"
+  },
+  {
+    "path": "daydreamer-agent/docs/architecture.md",
+    "bytes": 12455,
+    "sha256": "bed909e31e50e876a3c1b5c99bd622694d2021c05f6ef87931a444f0fe537eb0"
+  },
+  {
+    "path": "daydreamer-agent/docs/continuity.md",
+    "bytes": 4884,
+    "sha256": "f53daa5ee9ef28698f6cf23d47ed903a298a106e75d1f3caae6ecbdc6ea6df4d"
+  },
+  {
+    "path": "daydreamer-agent/docs/creativity.md",
+    "bytes": 6259,
+    "sha256": "4ebc9472830750f456f06942683c374e69b3905101d29a71305758113ba9b8bf"
+  },
+  {
+    "path": "daydreamer-agent/docs/dependencies.md",
+    "bytes": 1541,
+    "sha256": "a9cedde30681b189363b2658e163d3c440fd0846ca77ead4f92951a0b974a165"
+  },
+  {
+    "path": "daydreamer-agent/docs/event-extraction.md",
+    "bytes": 6961,
+    "sha256": "c1e867df2cc8fffb6cbd0af499c17efb7a889e25ea122d2c9a725405af5fdebb"
+  },
+  {
+    "path": "daydreamer-agent/docs/mobile-upload-api.md",
+    "bytes": 3385,
+    "sha256": "a5cf19df193a6cf8b10817cf776ed96c0321ae393fb91891627d9c10b527af54"
+  },
+  {
+    "path": "daydreamer-agent/docs/server-deployment.md",
+    "bytes": 4675,
+    "sha256": "968170165a56c3bea9ba4b7e90e77e05367636aab1a66095567429cd61eb746c"
+  },
+  {
+    "path": "daydreamer-agent/docs/validation.md",
+    "bytes": 12629,
+    "sha256": "8b2ec6a81f34e1316215e971355cb74224a814cd9f7afee289a36a05d730ccb6"
+  },
+  {
+    "path": "daydreamer-agent/prompts/event_extraction.md",
+    "bytes": 4196,
+    "sha256": "1c259eba3cc2aba2ec06941af70a3ddb835c0bcbb341e2efb87ef4cf58b3f27e"
+  },
+  {
+    "path": "daydreamer-agent/pyproject.toml",
+    "bytes": 224,
+    "sha256": "ab900ad09d63706d787c38a1a1cce251cf76161d596047dbc40cf2f85a1f2274"
+  },
+  {
+    "path": "daydreamer-agent/resources/daydreamer-style-transfer/SKILL.md",
+    "bytes": 11748,
+    "sha256": "b2bd58f4dda77e9b586ffda252cd5c4ad1b360126a438bfdb4987567be20d8ed"
+  },
+  {
+    "path": "daydreamer-agent/resources/daydreamer-style-transfer/references/examples.md",
+    "bytes": 7874,
+    "sha256": "2049c39129ce798a11c947559864a0070a68b8c2dd068565de3499150477e166"
+  },
+  {
+    "path": "daydreamer-agent/resources/daydreamer-style-transfer/references/input-output-schema.md",
+    "bytes": 7925,
+    "sha256": "a346d07b90b1e1de779d4896adfedbe6bbf90c2afc668f9f829714b154f4f5a3"
+  },
+  {
+    "path": "daydreamer-agent/resources/daydreamer-style-transfer/references/style-selection.md",
+    "bytes": 3688,
+    "sha256": "f030495391373e8d21ddd54acd43349de7d7674e085f58d5793e47ec0fa0b59e"
+  },
+  {
+    "path": "daydreamer-agent/resources/event-card/format-v0.2.md",
+    "bytes": 9319,
+    "sha256": "4ce5ae8ef8ccb05066d14751027d2abab7f4315839a609b78a606f8fe8b69fea"
+  },
+  {
+    "path": "daydreamer-agent/resources/event-card/template.json",
+    "bytes": 520,
+    "sha256": "614da5062f3193d897f4639b2cb6172a225856a4630ec489286a31efd994dc28"
+  },
+  {
+    "path": "daydreamer-agent/schemas/life_event_card.schema.json",
+    "bytes": 7412,
+    "sha256": "a4d4056b39933d33d447098326c011b9be4c115e3604cd9386a2e228ac9ed9f0"
+  },
+  {
+    "path": "daydreamer-agent/scripts/export_preview.py",
+    "bytes": 704,
+    "sha256": "48fcc293e3b8f32cbbfc93d6ddf1607a2ca8b928649ae406e2e2baaee543858a"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/__init__.py",
+    "bytes": 80,
+    "sha256": "447c9b8a61f47d8439fd2bd2325640cf8495a4011e1c12e1ce411101d1f6d332"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/application/.gitkeep",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/application/delivery.py",
+    "bytes": 3751,
+    "sha256": "7fba156949f1a6aaae8c174dcf855a3c3e85e657ccf2b85cf186d5418abc5493"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/application/pipeline.py",
+    "bytes": 23282,
+    "sha256": "261f0fec1223cf240cae8128008362132a774e1d24ed436a3ca91c73587a831d"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/application/settings.py",
+    "bytes": 4266,
+    "sha256": "16581352e67e4243382027010444178abea655c298f90a67c0b07bcd791d2ddd"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/application/video_workflow.py",
+    "bytes": 5947,
+    "sha256": "2f32658454d20debb5d20b333f73c319a36f0d743f7d6ddf9e7ea995a7d7306c"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/cli.py",
+    "bytes": 16183,
+    "sha256": "17252cad0177e16f364d9f0b04b21466f1176cb0ac425b22eedd77a3099fca4a"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/demo.py",
+    "bytes": 2496,
+    "sha256": "f779570d0d95434fb63d7e7362d3c437aab905805a6c55c41f7bead411f9338b"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/domain/.gitkeep",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/domain/continuity.py",
+    "bytes": 5702,
+    "sha256": "ad114a3707743f31813b00facff9f974adcd0f5da3a871315d8b958f7ab79d51"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/domain/errors.py",
+    "bytes": 1105,
+    "sha256": "0f15d812872f8ca6d9ce8adeccf460288fa13590a124e6c7d35c44a1479bec53"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/domain/events.py",
+    "bytes": 4974,
+    "sha256": "28eb7a9493353b50db027a037a14f114f69cd9ba3291a43d68efa8f035d15ac9"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/event_extraction/__init__.py",
+    "bytes": 83,
+    "sha256": "43a3168f1038523b4ff76bd7dc193abf09c0c12a185968ff7187821209b06060"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/event_extraction/media.py",
+    "bytes": 3971,
+    "sha256": "f3e0ea380409f3d8e9ae95a15d152cb42fbcdc050471a2ef87d1c2214ee7557d"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/event_extraction/pipeline.py",
+    "bytes": 12947,
+    "sha256": "ba3a1830ead171216e9c75f5656456bb91c6a89c81554cc4f2992c6c9badd65f"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/event_extraction/validation.py",
+    "bytes": 7909,
+    "sha256": "9ddfe3fe9bc3a026d91af606430ba7f725d95f5c70c16be37b9dc97dd363ae07"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/media/.gitkeep",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/media/ffmpeg.py",
+    "bytes": 9177,
+    "sha256": "c0ea561996095a56e6895a1ec01b206e3bcd11e63fc3c30b02956f74e2e87080"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/memory/.gitkeep",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/memory/repository.py",
+    "bytes": 1481,
+    "sha256": "5bd1debb9a61f1c10142ff627cb7ff200321ddd543b525f557c423a92125512b"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/prompts/.gitkeep",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/prompts/video_compiler.py",
+    "bytes": 5818,
+    "sha256": "12d45001ee28c6d59b05206f08c81b8e1eca8b005dd0ec860bc7b451757c6990"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/providers/.gitkeep",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/providers/audio.py",
+    "bytes": 2876,
+    "sha256": "1c5c1776674f9a57a2325f79e41409e78cf7c252c97017d4331a1330175680cf"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/providers/http.py",
+    "bytes": 4798,
+    "sha256": "a714da3fbf7b2578dd6d49e2bc0ed8d5ee4a564b2dc7d6ae7de48bf505b5ba57"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/providers/qwen.py",
+    "bytes": 7040,
+    "sha256": "adbb87697c6993b4f059097885bad9be8c4ac097dcd3ea98a459a1fd913a4316"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/providers/qwen_vision.py",
+    "bytes": 2520,
+    "sha256": "904cba5646e29ecfbebe9927f8286572d6a0778b4b9e30766cd7f0d8637ffa38"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/providers/wan.py",
+    "bytes": 3279,
+    "sha256": "26f5758dd72ab916295ed0a9550adb756720adbb602cf817ec71c564ad83a0e9"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/storage/.gitkeep",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/storage/files.py",
+    "bytes": 1912,
+    "sha256": "c7a110c6b679763871a6ce12239ebcd17de338380afc4dfe604eb94dec270a2c"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/storage/jobs_sqlite.py",
+    "bytes": 4974,
+    "sha256": "8be0a8c364328e3043efdace51a7f817f9a2744234bdaac810c42c3a566ca2a7"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/story/.gitkeep",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/story/assembly.py",
+    "bytes": 15933,
+    "sha256": "46aa81b7b2eaef1a83937f37eff53a19cda634473557b56493ae3143e470aa30"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/story/creativity.py",
+    "bytes": 5341,
+    "sha256": "c31d7f6d198dad0372c21462992b78527b2cb67fab0e5edf7ab4dcca640eac1f"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/story/diversity.py",
+    "bytes": 17317,
+    "sha256": "5e28228a561c9d9784d4fc17b7b9bdd4d04349ffe507da0e624e3000fe7937a5"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/story/generator.py",
+    "bytes": 6180,
+    "sha256": "a077467e2f41b87ab8098e099c522fe0b79bba7bc03e032daf46d419dc49ed52"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/story/seeded.py",
+    "bytes": 7182,
+    "sha256": "0c76c570ac7725e399920c1e4a168ae0c968d2f5d980e37f352ce781ab85ac6b"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/story/validation.py",
+    "bytes": 9132,
+    "sha256": "d6660ec579948fe039785543231f6d8bd9e40b5dbdea205e20deb825e23834c6"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/web/__init__.py",
+    "bytes": 68,
+    "sha256": "152df7bdb3c7d008542dd9178ee29c92c1b2a695f76b2bc578feadfc87b8fb2d"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/web/server.py",
+    "bytes": 15360,
+    "sha256": "0865db164f82bc720b5dd49686cde8ead075e235683b3aaf178aedb9a81ae5ef"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/web/store.py",
+    "bytes": 5559,
+    "sha256": "6a6e9f984a56fafec0c4866a49dacef3730d2066c7172465cc0227b964db35e9"
+  },
+  {
+    "path": "daydreamer-agent/src/daydreamer_agent/web/worker.py",
+    "bytes": 3936,
+    "sha256": "379cd2d4b3f18f77daa159c0b38a21484679744128928f1d76f417a99d4cf88e"
+  },
+  {
+    "path": "打包说明.md",
+    "bytes": 1800,
+    "sha256": "dd3905dd79adeae7d1f9adca509264faf8dc9588b7ca6f1c80a3de1f621238e4"
+  },
+  {
+    "path": "网页交互端/app.js",
+    "bytes": 9463,
+    "sha256": "6ede5746aa49c88061ef360b93b2c77d093ed107745346bc52e98f34deacd1ba"
+  },
+  {
+    "path": "网页交互端/cloud-shape.js",
+    "bytes": 13574,
+    "sha256": "6b68389a8c8d9463ada322c2062cffcc8faeace5327db0d7589d1f3b29d29453"
+  },
+  {
+    "path": "网页交互端/config.js",
+    "bytes": 1754,
+    "sha256": "72a438f0b17882db0eccebba0a61bce37dd5c34d767fea251f96741534e97dd6"
+  },
+  {
+    "path": "网页交互端/index.html",
+    "bytes": 2134,
+    "sha256": "bf0bfff58644f110a19a3b43982fb9fad925400a05a61f83f4029c712566c8bc"
+  },
+  {
+    "path": "网页交互端/server.cjs",
+    "bytes": 2415,
+    "sha256": "a3cb156db37c44c2ab949f1259100161a796cefccebc541ae4eb0a2dd2c651a6"
+  },
+  {
+    "path": "网页交互端/styles.css",
+    "bytes": 3162,
+    "sha256": "47a0b43212d45cee15790935efed96aaecebba4d117169b128d6d1a82997b57f"
+  },
+  {
+    "path": "网页交互端/启动演示.cmd",
+    "bytes": 77,
+    "sha256": "51f81f0305f32f4acec27944d2291d63211faea4d05047a1cc11c73c53d83e00"
+  },
+  {
+    "path": "网页交互端/素材/UI界面示例.png",
+    "bytes": 65330,
+    "sha256": "e8260c07a6dd0441866890dc87a6da6da76f08f7d9767dcdc4ae2bbef1416a46"
+  },
+  {
+    "path": "网页交互端/素材/云朵.png",
+    "bytes": 23247,
+    "sha256": "b5b28f14473b1ad865bcb798777262e0d05c2cceff604e6939760e0867d9968d"
+  },
+  {
+    "path": "网页交互端/素材/线条小人.png",
+    "bytes": 42420,
+    "sha256": "286d0360ea05808a1a29e025eb739683425a0bdd46ba8b131dc4d3095de1e220"
+  }
+]

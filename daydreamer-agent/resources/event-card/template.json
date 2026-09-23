@@ -1,0 +1,29 @@
+{
+  "basic_info": {
+    "event_id": "",
+    "title": "",
+    "time_range": {
+      "start": null,
+      "end": null
+    },
+    "scene": ""
+  },
+  "event_description": {
+    "summary": "",
+    "sequence": []
+  },
+  "key_frames": [],
+  "audio_info": [],
+  "details_to_preserve": [],
+  "selection_info": {
+    "reason": "",
+    "is_duplicate": null,
+    "duplicate_of_event_id": null,
+    "status": "waiting_accumulation"
+  },
+  "memory_links": {
+    "character_ids": [],
+    "location_ids": [],
+    "object_ids": []
+  }
+}

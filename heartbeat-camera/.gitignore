@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+*/build/
+
+# Local configuration（本地私密，勿提交）
+local.properties
+gradle.properties
+
+# 私有凭据
+.keystore
+*.jks
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Android
+captures/
+.externalNativeBuild/
+.cxx/

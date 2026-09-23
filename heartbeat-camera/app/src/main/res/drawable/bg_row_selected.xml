@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 素材列表行 · 选中：accent 弱底 + accent 描边 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/accent_soft" />
+    <corners android:radius="@dimen/radius_btn" />
+    <stroke android:width="2dp" android:color="@color/accent" />
+</shape>

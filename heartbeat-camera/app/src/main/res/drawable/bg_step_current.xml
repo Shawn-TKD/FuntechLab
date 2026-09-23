@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 三步 stepper 结点 · 当前（蓝，带光晕感） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/accent_soft" />
+    <stroke android:width="2dp" android:color="@color/accent" />
+</shape>

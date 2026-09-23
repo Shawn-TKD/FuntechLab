@@ -1,0 +1,21 @@
+[Unit]
+Description=Daydreamer private mobile API
+After=network.target
+
+[Service]
+User=daydreamer
+Group=daydreamer
+WorkingDirectory=/opt/daydreamer/project
+EnvironmentFile=/etc/daydreamer/service.env
+ExecStart=/opt/daydreamer/venv/bin/python -m daydreamer_agent.web.server
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/daydreamer
+
+[Install]
+WantedBy=multi-user.target

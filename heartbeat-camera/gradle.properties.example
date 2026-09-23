@@ -1,0 +1,31 @@
+# Gradle 项目属性 —— 模板文件
+#
+# ⚠️ 这个文件是「示例」，本工程实际读取的是同目录下的 gradle.properties。
+#    打包时原始的 gradle.properties **被刻意排除**了，因为它里面是真实的
+#    Insta360 Maven 凭据（该文件也在 .gitignore 里，本就不该随代码分发）。
+#
+# 拿到源码后请这样做：
+#   1) 复制本文件为 gradle.properties：
+#        cp gradle.properties.example gradle.properties
+#   2) 把下面两行的值换成你自己的凭据。
+#      凭据来自 Insta360 官方 SDK 的 demo 工程，或向影石 SDK 对接同学索取。
+#   3) 不想在本工程里放凭据也可以：写进用户级 ~/.gradle/gradle.properties，
+#      效果完全一样，且不会误提交。
+#
+# 为什么要有这一步：settings.gradle.kts 里访问
+#   https://androidsdk.insta360.com/repository/maven-public/
+# 需要认证，没有凭据会在依赖解析阶段直接失败。
+
+insta360MavenUser=<填写 Insta360 Maven 用户名>
+insta360MavenPassword=<填写 Insta360 Maven 密码>
+
+org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+# 本工程位于含中文的目录（如 E:\2026智能影像挑战赛\），AGP 默认会拒绝构建。
+# 本工程无 native 源码编译（影石 SDK 以预编译 aar 形式引入），关闭该路径检查是安全的。
+android.overridePathCheck=true
+kotlin.code.style=official
+org.gradle.parallel=true
+# 关闭 build cache：Windows 上 Gradle build-cache 的 .part 文件会被安全软件/文件锁
+# 偶发占用，导致 EnumerateClassesTransform "拒绝访问" 而构建失败。
+org.gradle.caching=false

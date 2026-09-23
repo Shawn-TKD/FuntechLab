@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>白日梦想家</title>
+  <link rel="stylesheet" href="styles.css?v=opaque-cloud-3">
+</head>
+<body>
+  <main id="app" data-state="idle" aria-label="白日梦想家互动演示">
+    <div id="scene" class="scene">
+      <img class="character" src="素材/线条小人.png" alt="一个正在想象的小人" draggable="false">
+      <svg class="thoughts" viewBox="0 0 402 874" aria-hidden="true">
+        <circle cx="285" cy="389" r="8.4"/>
+        <circle cx="273" cy="412" r="5.4"/>
+      </svg>
+      <button id="start" class="start" type="button"><span>开始</span></button>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </div>
+    <div id="video-layer" class="video-layer" aria-hidden="true">
+      <video id="video" playsinline webkit-playsinline muted preload="auto" disablepictureinpicture></video>
+    </div>
+    <svg id="cloud-svg" class="cloud-svg" aria-hidden="true">
+      <defs><clipPath id="cloud-clip" clipPathUnits="userSpaceOnUse"><path id="cloud-path"/></clipPath></defs>
+      <g id="cloud-outline"><image href="素材/云朵.png" x="-640" y="-640" width="1280" height="1280"/></g>
+    </svg>
+    <nav class="playback-tools" aria-label="播放控制" inert>
+      <button id="close" class="icon-button" aria-label="结束播放，返回首页" title="返回"><svg viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></svg></button>
+      <button id="sound" class="icon-button" aria-label="打开声音" title="打开声音"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4Z"/><path class="muted-mark" d="m16 9 6 6m0-6-6 6"/><path class="sound-mark" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg></button>
+    </nav>
+    <button id="resume" class="resume" hidden>继续播放</button>
+  </main>
+  <script src="config.js?v=breathing-2"></script>
+  <script src="cloud-shape.js?v=breathing-2"></script>
+  <script src="app.js?v=opaque-cloud-3"></script>
+</body>
+</html>

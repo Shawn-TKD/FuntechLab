@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 蓝牙（BLE 扫描/连接/广播） -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+
+    <!--
+      ⚠️ neverForLocation 很关键，不是可选的优化。
+
+      Android 12+ 默认把「BLE 扫描结果」视为可用于推断位置的信息，
+      于是即使只想要心率带的数据，也必须先拿到定位权限，
+      否则系统会在启动时弹「是否允许获取位置信息」——演示现场所有人都会看到，
+      而且点了拒绝就再也扫不到设备。
+
+      本 App 只用广播里的**服务 UUID 与设备名**判断哪台是心率带，
+      从不做位置推断，所以声明 neverForLocation 是完全诚实的，
+      Android 12+ 上也就因此免掉了定位权限（具体见下面那段分档说明）。
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+
+    <!--
+      ⚠️ 定位权限：只在 Android 11 及以下需要，Android 12+ 已经不需要了。
+      这是**两个互斥事实**叠出来的结论，缺一条都会做错：
+
+        ① Android 6~11（API 23~30）：BLE 扫描**必须**先拿到定位权限，
+           否则 startScan 直接抛 SecurityException。minSdk 是 29，所以
+           29/30 这两档真的会用到这条权限，不能删。
+        ② Android 12+（API 31+）：上面的 neverForLocation 已经免掉了它。
+
+      所以写法是 maxSdkVersion="30" —— 只有老系统才声明这条权限。
+      于是新机上系统的「应用信息 → 权限」里根本不会出现「位置信息」这一项，
+      现场不可能弹出定位授权窗口；老机上又能正常扫到心率带。
+
+      为什么还要 tools:node="replace"：Insta360 SDK 的 aar 自己也声明了
+      不带 maxSdkVersion 的 ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION，
+      合并时不加干预会被它那条「全版本」声明覆盖回来，
+      maxSdkVersion 就白写了。replace 表示用我们这条完整替换掉它的。
+      （已用 manifest-merger-blame 报告核对过这两个节点确实来自 sdk-camera-android:2.1.5）
+    -->
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30"
+        tools:node="replace" />
+
+    <!--
+      粗定位整条剔除（SDK 也声明了它，这里显式移除）。
+      理由：Android 10（API 29）起，BLE 扫描只认 ACCESS_FINE_LOCATION，
+      单有 COARSE 是拿不到扫描结果的；而本 App minSdk 就是 29。
+      也就是说这条权限在**任何**受支持的版本上都毫无用处，
+      但留着它会让新机的权限页里仍出现「位置信息」条目——白白多一处演示风险。
+    -->
+    <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
+        tools:node="remove" />
+
+    <!-- Interact forecast 相机（GO Ultra 需要公网激活 / 事后同步走 WiFi） -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+
+    <!-- 通知（SDK 激活/连接可能弹通知，Android 13+ 需要） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+
+    <application
+        android:name=".HeartbeatApp"
+        android:allowBackup="true"
+        android:label="心跳控制相机"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.HeartbeatCamera"
+        android:usesCleartextTraffic="true"
+        tools:replace="android:label">
+
+        <!--
+            ⚠️ configChanges 是**必须**的（真机踩过大坑）。
+            本 Activity 持有的是「长连接」：SDK 相机会话 + BLE 心率 + 模拟心率协程。
+            折叠屏上折叠/展开、旋转、深色模式切换、字体缩放，默认都会重建 Activity，
+            重建就会走 onDestroy 把整条链路拆掉 —— 表现为
+            「刚连上的相机突然变未连接」「重连报 camera connect failed -214」。
+
+            另外说明：**不要**加 `orientation` 之外的 `density`/`fontScale` 之外的奇怪项，
+            这些足够覆盖本机常见重建场景；真出现别的配置变更，
+            我们现在也有 detachUi()（重建后自动回填状态）兜底，不会再把链路拆掉。
+        -->
+        <activity
+            android:name=".ui.MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|density|uiMode|fontScale|navigation"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

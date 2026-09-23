@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 三步 stepper 结点 · 未开始（灰） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/bg_surface_3" />
+    <stroke android:width="2dp" android:color="@color/border" />
+</shape>

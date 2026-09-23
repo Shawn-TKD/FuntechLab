@@ -1,0 +1,10 @@
+[project]
+name = "daydreamer-agent"
+version = "0.1.0"
+description = "First-person fantasy video agent from life event cards"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[tool.uv]
+package = false

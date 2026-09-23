@@ -1,0 +1,71 @@
+# 空字符串表示尚未指定；生成视频前会验证所有必要参数。
+[credentials]
+# 仅保存本机CSV路径，不保存API Key；环境变量与显式参数仍可覆盖。
+csv_path = ""
+
+[workflow]
+# run命令在事件卡和命令行均未指定参数时采用。
+duration_seconds = 12
+aspect_ratio = "16:9"
+resolution = "720P"
+
+[story]
+provider = "bailian"
+model = "qwen3.8-max"
+request_timeout_seconds = 600
+max_creation_restarts = 2
+skill_directory = "resources/daydreamer-style-transfer"
+
+[extraction]
+model = "qwen3.8-max"
+# 本地应用边界：默认最长30分钟；分段理解后合并同一事件。
+max_duration_seconds = 1800
+chunk_seconds = 60
+fps = 2
+
+[creativity]
+# 每阶段只生成一个方案，明确向Qwen传入随机seed。
+enabled = true
+temperature = 1.0
+
+[video]
+provider = "bailian"
+model = "wan3.0-video-prime"
+continuation_model = "wan3.0-video-prime"
+# 第一段文生视频，后续段基于前段实际剪辑末帧生成。
+continuity_mode = "frame_chain"
+generation_concurrency = 1
+# 单次提交超过5分钟仍在排队/运行时，确认状态后最多自动重提一次。
+generation_timeout_seconds = 300
+max_timeout_resubmissions = 1
+resolution = ""
+aspect_ratio = ""
+
+[production]
+duration_seconds = ""
+# 分步模式 plan 后用 render 生成视频；run 表示直接执行完整流程。
+review_before_video = true
+
+[audio]
+music_provider = ""
+sfx_provider = ""
+required_for_final = true
+preserve_generated_clip_audio = false
+allow_speech = false
+
+[checks]
+# 不调用模型做生成后的故事内容复核；本地格式与文件检查保留。
+story_text = false
+technical_files = true
+media_content = false
+
+[memory]
+world_id = ""
+commit_policy = "draft_only"
+
+[storage]
+backend = "local"
+run_directory = "data/runs"
+memory_directory = "data/memory"
+task_database = "data/jobs.sqlite3"
+delivery_directory = "outputs"

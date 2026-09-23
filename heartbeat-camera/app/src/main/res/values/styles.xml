@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  V15 组件样式。
+
+  ⚠️ 两条硬约束（都踩过）：
+
+  1. **样式名不能含 `.`** —— AAPT 会把 `Text.Display` 解析成「名为 Display、
+     隐式父样式为 Text」的样式，于是报 `resource style/Text not found`。
+     所以这里一律用 `TextDisplay` 这种下划线式命名。
+
+  2. **刻意不写 parent** —— 只声明本设计需要的属性，其余交给控件自身的默认 style
+     （Material 组件会自己带上 Material3 默认值）。写 parent="Widget.Material3.XXX"
+     反而容易踩到版本间样式名变更。
+-->
+<resources>
+
+    <!-- ===== 字阶（1.25 比例） ===== -->
+
+    <!-- Display：心率数值。60sp/700，等宽数字（tnum）避免 88→89 时整块抖动 -->
+    <style name="TextDisplay">
+        <item name="android:textSize">@dimen/fs_display</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/hr</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:letterSpacing">-0.045</item>
+    </style>
+
+    <!-- H1：Tab 页标题 / 区块名 -->
+    <style name="TextH1">
+        <item name="android:textSize">@dimen/fs_h1</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+
+    <!-- H2：卡片标题 -->
+    <style name="TextH2">
+        <item name="android:textSize">@dimen/fs_h2</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+
+    <!-- Body：正文 / 列表主文本 -->
+    <style name="TextBody">
+        <item name="android:textSize">@dimen/fs_body</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+
+    <!-- Label：文件名、次要标签、胶囊 -->
+    <style name="TextLabel">
+        <item name="android:textSize">@dimen/fs_label</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+
+    <!-- Caption：说明文字、时间戳 -->
+    <style name="TextCaption">
+        <item name="android:textSize">@dimen/fs_caption</item>
+        <item name="android:textColor">@color/text_tertiary</item>
+        <item name="android:lineSpacingMultiplier">1.25</item>
+    </style>
+
+    <!-- ===== 卡片 ===== -->
+    <style name="CardHb">
+        <item name="cardCornerRadius">@dimen/radius_card</item>
+        <item name="cardElevation">0dp</item>
+        <item name="cardBackgroundColor">@color/bg_surface</item>
+        <item name="strokeColor">@color/border</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="cardPreventCornerOverlap">false</item>
+        <item name="cardUseCompatPadding">false</item>
+    </style>
+
+    <!-- ===== 按钮 ===== -->
+
+    <!-- 主操作：accent 实底，56dp 高 -->
+    <style name="BtnPrimary">
+        <item name="android:layout_height">@dimen/btn_h_lg</item>
+        <item name="backgroundTint">@color/accent_solid</item>
+        <item name="android:textColor">#FFFFFFFF</item>
+        <item name="android:textSize">@dimen/fs_body</item>
+        <item name="android:textStyle">bold</item>
+        <item name="cornerRadius">@dimen/radius_btn</item>
+    </style>
+
+    <!-- 次操作：surface-2 底 + 描边 -->
+    <style name="BtnSecondary">
+        <item name="android:layout_height">@dimen/btn_h</item>
+        <item name="backgroundTint">@color/bg_surface_2</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">@dimen/fs_body</item>
+        <item name="cornerRadius">@dimen/radius_btn</item>
+        <item name="strokeColor">@color/border</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <!-- 警告操作：橙（「停止心率触发」用它，**不是**危险色） -->
+    <style name="BtnWarn">
+        <item name="android:layout_height">@dimen/btn_h</item>
+        <item name="backgroundTint">@color/warn_soft</item>
+        <item name="android:textColor">@color/warn</item>
+        <item name="android:textSize">@dimen/fs_body</item>
+        <item name="android:textStyle">bold</item>
+        <item name="cornerRadius">@dimen/radius_btn</item>
+        <item name="strokeColor">@color/warn</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <!-- 危险操作：红。**全界面只在设置页末出现一次** -->
+    <style name="BtnDanger">
+        <item name="android:layout_height">@dimen/btn_h</item>
+        <item name="backgroundTint">@color/danger_soft</item>
+        <item name="android:textColor">@color/danger_text</item>
+        <item name="android:textSize">@dimen/fs_body</item>
+        <item name="android:textStyle">bold</item>
+        <item name="cornerRadius">@dimen/radius_btn</item>
+        <item name="strokeColor">@color/danger</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <!-- 小号按钮：折叠头 / 重测 / 步进器 -->
+    <style name="BtnSmall">
+        <item name="android:layout_height">40dp</item>
+        <item name="android:minWidth">40dp</item>
+        <item name="backgroundTint">@color/bg_surface_3</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">@dimen/fs_label</item>
+        <item name="cornerRadius">@dimen/radius_input</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <!-- ===== 状态胶囊 ===== -->
+    <style name="PillHb">
+        <item name="android:layout_height">@dimen/pill_h</item>
+        <item name="android:textSize">@dimen/fs_label</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+
+    <!-- ===== 输入框 ===== -->
+    <style name="InputHb">
+        <item name="android:background">@drawable/bg_input</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_tertiary</item>
+        <item name="android:textSize">@dimen/fs_body</item>
+        <item name="android:minHeight">@dimen/touch_min</item>
+        <item name="android:paddingStart">@dimen/sp_3</item>
+        <item name="android:paddingEnd">@dimen/sp_3</item>
+    </style>
+
+    <!-- ===== 列表行 ===== -->
+    <style name="ListRowHb">
+        <item name="android:minHeight">@dimen/list_row_min_h</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingStart">@dimen/sp_3</item>
+        <item name="android:paddingEnd">@dimen/sp_3</item>
+    </style>
+
+</resources>

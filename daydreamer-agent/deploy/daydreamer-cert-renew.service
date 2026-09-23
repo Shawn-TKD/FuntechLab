@@ -1,0 +1,6 @@
+[Unit]
+Description=Renew Daydreamer short-lived IP certificate
+
+[Service]
+Type=oneshot
+ExecStart=/opt/daydreamer/certbot/bin/certbot renew --quiet --deploy-hook "/usr/bin/systemctl reload nginx"

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  过渡动画开关。运行时还会结合系统「移除动画」开关
+  （Settings.Global.ANIMATOR_DURATION_SCALE == 0）一起判断，
+  系统关了动画就降级为瞬时切换。
+
+  ⚠️ 不要在 values-night/ 下定义同名 bool —— 资源按配置整体替换，
+  只在单侧定义会让另一侧取不到值。
+-->
+<resources>
+    <bool name="animate_transitions">true</bool>
+</resources>

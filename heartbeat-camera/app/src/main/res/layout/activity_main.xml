@@ -1,0 +1,1155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  V15 主界面 · 四 Tab 信息架构
+
+  ┌─ AppBar（52dp）：页标题 + 相机/心率状态胶囊 ────────────────
+  ├─ 内容区（FrameLayout，四选一显示）
+  │   ① 控制台  心率环 · 区间带 · 设备卡 · 主开关 · 会话列表
+  │   ② 素材    三步 stepper · 分段（相机/服务器）· 单选列表 · 操作条
+  │   ③ 设置    模式 · 阈值滑块 · 间隔步进器 · 折叠配置 · 危险区
+  │   ④ 诊断    自检卡 · 主题 · 彩色终端 · 复制/清空
+  └─ NavigationBar（62dp）─────────────────────────────────
+
+  相对 V14 的三处结构性改动：
+  1. 一长条平铺 13 个区块 → 四个 Tab，一屏一焦点；
+  2. 心率数字常驻在环中央，不再随滚动滚出视野；
+  3. 日志从页顶第 5 区块移到独立 Tab（排障信息不该占首屏）。
+
+  ⚠️ 所有 V14 的控件 id 都原样保留（hrValue / captureState / mediaListContainer…），
+  只是换了所在位置 —— 这样 MainActivity 的逻辑可以逐段迁移而不是重写。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_base"
+    android:orientation="vertical">
+
+    <!-- ═══════════ AppBar ═══════════ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/appbar_h"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="@dimen/page_padding"
+        android:paddingEnd="@dimen/page_padding">
+
+        <TextView
+            android:id="@+id/appBarTitle"
+            style="@style/TextH2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:singleLine="true"
+            android:ellipsize="end"
+            tools:text="控制台" />
+
+        <TextView
+            android:id="@+id/pillCamera"
+            style="@style/PillHb"
+            android:layout_width="wrap_content"
+            android:layout_height="@dimen/pill_h"
+            android:background="@drawable/bg_pill_neutral"
+            android:drawablePadding="4dp"
+            tools:text="● 相机" />
+
+        <TextView
+            android:id="@+id/pillHr"
+            style="@style/PillHb"
+            android:layout_width="wrap_content"
+            android:layout_height="@dimen/pill_h"
+            android:layout_marginStart="@dimen/sp_2"
+            android:background="@drawable/bg_pill_neutral"
+            tools:text="♥ --" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/border" />
+
+    <!-- ═══════════ 内容区 ═══════════ -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- ─────────── ① 控制台 ─────────── -->
+        <ScrollView
+            android:id="@+id/panelConsole"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/page_padding">
+
+                <!-- 心率环：环 + 中心数值叠加。数值用 TextView 叠在环上，
+                     这样「数字不随滚动消失」，同时排版能力（字号/字重）仍由字体系统控制 -->
+                <FrameLayout
+                    android:layout_width="@dimen/hr_ring_size"
+                    android:layout_height="@dimen/hr_ring_size"
+                    android:layout_gravity="center_horizontal">
+
+                    <com.insta360.heartbeat.ui.widget.HrRingView
+                        android:id="@+id/hrRing"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center">
+
+                        <TextView
+                            android:id="@+id/hrValue"
+                            style="@style/TextDisplay"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            tools:text="--" />
+
+                        <TextView
+                            android:id="@+id/hrUnit"
+                            style="@style/TextLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="bpm" />
+                    </LinearLayout>
+                </FrameLayout>
+
+                <!-- 触发区间带：把迟滞阈值从「要记住的规则」变成「看得见的区段」 -->
+                <com.insta360.heartbeat.ui.widget.HrZoneBandView
+                    android:id="@+id/zoneBand"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/zone_band_h"
+                    android:layout_marginTop="@dimen/sp_5" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_1"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/zoneSafe"
+                        style="@style/TextCaption"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/ok"
+                        tools:text="安全区" />
+
+                    <TextView
+                        android:id="@+id/zoneHyst"
+                        style="@style/TextCaption"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:textColor="@color/warn"
+                        tools:text="迟滞带" />
+
+                    <TextView
+                        android:id="@+id/zoneTrig"
+                        style="@style/TextCaption"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="end"
+                        android:textColor="@color/danger"
+                        tools:text="触发区" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/zoneNow"
+                    style="@style/TextCaption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_1"
+                    android:gravity="center"
+                    tools:text="等待心率数据…" />
+
+                <!-- 主开关：唯一的主操作。待机=蓝实底启动；触发中=转危险态停止 -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnMainSwitch"
+                    style="@style/BtnPrimary"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/btn_h_lg"
+                    android:layout_marginTop="@dimen/sp_5"
+                    android:text="启动心率触发" />
+
+                <TextView
+                    android:id="@+id/mainSwitchHint"
+                    style="@style/TextCaption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_2"
+                    android:gravity="center"
+                    tools:text="需要先连接相机" />
+
+                <!-- 设备卡 -->
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/CardHb"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_4">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/sp_4">
+
+                        <TextView
+                            style="@style/TextH2"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="设备" />
+
+                        <TextView
+                            android:id="@+id/captureState"
+                            style="@style/TextBody"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_2"
+                            tools:text="相机: 未连接" />
+
+                        <TextView
+                            android:id="@+id/deviceState"
+                            style="@style/TextBody"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_1"
+                            tools:text="心率源: 未连接" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_3"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnConnectCamera"
+                                style="@style/BtnSecondary"
+                                android:layout_width="0dp"
+                                android:layout_height="@dimen/btn_h"
+                                android:layout_weight="1"
+                                android:text="连接相机" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnToggleHrSource"
+                                style="@style/BtnSecondary"
+                                android:layout_width="0dp"
+                                android:layout_height="@dimen/btn_h"
+                                android:layout_marginStart="@dimen/sp_2"
+                                android:layout_weight="1"
+                                android:text="心率源 ▾" />
+                        </LinearLayout>
+
+                        <!-- 心率源扫描：**默认折叠**。它是配置动作，展开后列表很长，
+                             常驻会把控制台「心率环」这个唯一焦点冲淡 -->
+                        <LinearLayout
+                            android:id="@+id/hrSourceBody"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_3"
+                            android:orientation="vertical"
+                            android:visibility="gone">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnScanBle"
+                                style="@style/BtnSecondary"
+                                android:layout_width="match_parent"
+                                android:layout_height="@dimen/btn_h"
+                                android:text="扫描心率设备（点选列表里的 FR255）" />
+
+                            <TextView
+                                android:id="@+id/scanHint"
+                                style="@style/TextCaption"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/sp_2"
+                                android:visibility="gone" />
+
+                            <LinearLayout
+                                android:id="@+id/deviceList"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/sp_1"
+                                android:orientation="vertical"
+                                android:visibility="gone" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnSimulate"
+                                style="@style/BtnWarn"
+                                android:layout_width="match_parent"
+                                android:layout_height="@dimen/btn_h"
+                                android:layout_marginTop="@dimen/sp_2"
+                                android:text="启动模拟心率（无需设备）" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 会话列表：给「拍了几段、每段多久」一个事实依据，消除黑盒感。
+                     注意它只反映 App 自己的 armed 标志，不依赖 isWorking()——
+                     间隔类模式两次快门之间 isWorking() 会 false，用它判断会漏。 -->
+                <TextView
+                    style="@style/TextH2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_5"
+                    android:text="本次会话" />
+
+                <LinearLayout
+                    android:id="@+id/sessionList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_2"
+                    android:orientation="vertical" />
+
+                <TextView
+                    android:id="@+id/sessionEmpty"
+                    style="@style/TextCaption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_2"
+                    android:text="还没有触发记录。启动心率触发后，每次开拍/停止都会记在这里。" />
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ─────────── ② 素材 ─────────── -->
+        <ScrollView
+            android:id="@+id/panelMedia"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/page_padding">
+
+                <!-- 三步 stepper -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/stepDot1"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:background="@drawable/bg_step_current"
+                            android:gravity="center"
+                            android:text="1"
+                            android:textColor="@color/text_primary"
+                            android:textSize="@dimen/fs_label"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/stepLabel1"
+                            style="@style/TextCaption"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_1"
+                            android:text="读取列表" />
+                    </LinearLayout>
+
+                    <View
+                        android:id="@+id/stepLine1"
+                        android:layout_width="0dp"
+                        android:layout_height="2dp"
+                        android:layout_weight="0.4"
+                        android:layout_gravity="top"
+                        android:layout_marginTop="13dp"
+                        android:background="@color/border" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/stepDot2"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:background="@drawable/bg_step_pending"
+                            android:gravity="center"
+                            android:text="2"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="@dimen/fs_label"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/stepLabel2"
+                            style="@style/TextCaption"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_1"
+                            android:text="选中一条" />
+                    </LinearLayout>
+
+                    <View
+                        android:id="@+id/stepLine2"
+                        android:layout_width="0dp"
+                        android:layout_height="2dp"
+                        android:layout_weight="0.4"
+                        android:layout_gravity="top"
+                        android:layout_marginTop="13dp"
+                        android:background="@color/border" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/stepDot3"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:background="@drawable/bg_step_pending"
+                            android:gravity="center"
+                            android:text="3"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="@dimen/fs_label"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/stepLabel3"
+                            style="@style/TextCaption"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_1"
+                            android:text="上传" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 分段：相机素材 / 服务器任务 -->
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/segMedia"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_4"
+                    app:checkedButton="@id/segCamera"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/segCamera"
+                        style="@style/BtnSecondary"
+                        android:layout_width="0dp"
+                        android:layout_height="@dimen/btn_h"
+                        android:layout_weight="1"
+                        android:text="相机素材" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/segServer"
+                        style="@style/BtnSecondary"
+                        android:layout_width="0dp"
+                        android:layout_height="@dimen/btn_h"
+                        android:layout_weight="1"
+                        android:text="已上传任务" />
+                </com.google.android.material.button.MaterialButtonToggleGroup>
+
+                <!-- ① 相机素材 -->
+                <LinearLayout
+                    android:id="@+id/secCamera"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_3"
+                    android:orientation="vertical">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRefreshMedia"
+                        style="@style/BtnSecondary"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/btn_h"
+                        android:text="刷新相机素材列表" />
+
+                    <TextView
+                        android:id="@+id/mediaListHint"
+                        style="@style/TextCaption"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/sp_2"
+                        android:text="素材列表尚未读取。先点「刷新相机素材列表」，再从下面点一条视频。" />
+
+                    <ScrollView
+                        android:id="@+id/mediaListScroll"
+                        android:layout_width="match_parent"
+                        android:layout_height="280dp"
+                        android:layout_marginTop="@dimen/sp_2"
+                        android:background="@drawable/bg_inner"
+                        android:nestedScrollingEnabled="true"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:id="@+id/mediaListContainer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="@dimen/sp_1" />
+                    </ScrollView>
+                </LinearLayout>
+
+                <!-- ② 已上传任务 -->
+                <LinearLayout
+                    android:id="@+id/secServer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_3"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRefreshServer"
+                        style="@style/BtnSecondary"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/btn_h"
+                        android:text="查询已上传任务" />
+
+                    <TextView
+                        android:id="@+id/serverListHint"
+                        style="@style/TextCaption"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/sp_2"
+                        android:text="尚未查询。点「查询已上传任务」，逐条查询本机上传过的任务（上传成功会自动记下任务 id）。" />
+
+                    <ScrollView
+                        android:id="@+id/serverListScroll"
+                        android:layout_width="match_parent"
+                        android:layout_height="220dp"
+                        android:layout_marginTop="@dimen/sp_2"
+                        android:background="@drawable/bg_inner"
+                        android:nestedScrollingEnabled="true"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:id="@+id/serverListContainer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="@dimen/sp_1" />
+                    </ScrollView>
+                </LinearLayout>
+
+                <!-- 上传操作条 -->
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/CardHb"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_4">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/sp_4">
+
+                        <TextView
+                            android:id="@+id/uploadStage"
+                            style="@style/TextBody"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            tools:text="上传状态：待命" />
+
+                        <com.google.android.material.progressindicator.LinearProgressIndicator
+                            android:id="@+id/uploadProgress"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_2"
+                            android:indeterminate="true"
+                            android:visibility="gone"
+                            app:indicatorColor="@color/accent"
+                            app:trackColor="@color/bg_surface_3"
+                            app:trackCornerRadius="3dp"
+                            app:trackThickness="6dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnUploadSelected"
+                            style="@style/BtnPrimary"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/btn_h_lg"
+                            android:layout_marginTop="@dimen/sp_3"
+                            android:text="上传选中素材" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnUploadClip"
+                            style="@style/BtnSecondary"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/btn_h"
+                            android:layout_marginTop="@dimen/sp_2"
+                            android:text="或：自动上传最新一段视频" />
+
+                        <TextView
+                            android:id="@+id/uploadHint"
+                            style="@style/TextCaption"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_3"
+                            android:text="用法：连上相机 → 「刷新相机素材列表」→ 点一行选中 → 「上传选中素材」。上传以视频原始字节直投服务器并自动带幂等键，失败重试不会重复建任务。下载必须先连着相机 WiFi；上传会自动改走蜂窝/其它能上网的通道，手机没流量时先断开相机 WiFi 再点一次即可续传（文件已缓存）。" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ─────────── ③ 设置 ─────────── -->
+        <ScrollView
+            android:id="@+id/panelSettings"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/page_padding">
+
+                <TextView
+                    style="@style/TextH2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="拍摄模式" />
+
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/modeGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_2"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/modeVideo"
+                        style="@style/BtnSecondary"
+                        android:layout_width="0dp"
+                        android:layout_height="@dimen/btn_h"
+                        android:layout_weight="1"
+                        android:text="录像" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/modePhoto"
+                        style="@style/BtnSecondary"
+                        android:layout_width="0dp"
+                        android:layout_height="@dimen/btn_h"
+                        android:layout_weight="1"
+                        android:text="间隔拍照" />
+                </com.google.android.material.button.MaterialButtonToggleGroup>
+
+                <!-- 心率触发阈值：滑块 + 联动钳制 + 通道宽度提示 -->
+                <TextView
+                    style="@style/TextH2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_6"
+                    android:text="心率触发阈值" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_3"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/TextBody"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="开拍阈值" />
+
+                    <TextView
+                        android:id="@+id/onValue"
+                        style="@style/TextH2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/hr"
+                        tools:text="110 bpm" />
+                </LinearLayout>
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/sliderOn"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:stepSize="1"
+                    android:value="110"
+                    android:valueFrom="30"
+                    android:valueTo="250"
+                    app:labelBehavior="gone"
+                    app:thumbColor="@color/hr"
+                    app:trackColorActive="@color/hr"
+                    app:trackColorInactive="@color/bg_surface_3" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_3"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/TextBody"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="停止阈值" />
+
+                    <TextView
+                        android:id="@+id/offValue"
+                        style="@style/TextH2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/ok"
+                        tools:text="100 bpm" />
+                </LinearLayout>
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/sliderOff"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:stepSize="1"
+                    android:value="100"
+                    android:valueFrom="30"
+                    android:valueTo="250"
+                    app:labelBehavior="gone"
+                    app:thumbColor="@color/ok"
+                    app:trackColorActive="@color/ok"
+                    app:trackColorInactive="@color/bg_surface_3" />
+
+                <!-- 即时提示：被钳制 / 通道过窄时在这里说明，**不静默改数** -->
+                <TextView
+                    android:id="@+id/hysteresisHint"
+                    style="@style/TextCaption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_1"
+                    android:text="停止阈值必须小于开拍阈值（迟滞防抖）；两者间距小于 3 bpm 时可能在阈值附近反复开关。" />
+
+                <!-- 间隔：步进器 + 快捷值 -->
+                <TextView
+                    style="@style/TextH2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_6"
+                    android:text="间隔（间隔拍照模式生效）" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_3"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnIntervalMinus"
+                        style="@style/BtnSmall"
+                        android:layout_width="48dp"
+                        android:layout_height="@dimen/touch_min"
+                        android:text="−"
+                        android:textSize="18sp" />
+
+                    <EditText
+                        android:id="@+id/intervalInput"
+                        style="@style/InputHb"
+                        android:layout_width="0dp"
+                        android:layout_height="@dimen/touch_min"
+                        android:layout_marginStart="@dimen/sp_2"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:hint="秒"
+                        android:inputType="number"
+                        android:textSize="@dimen/fs_h2"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnIntervalPlus"
+                        style="@style/BtnSmall"
+                        android:layout_width="48dp"
+                        android:layout_height="@dimen/touch_min"
+                        android:layout_marginStart="@dimen/sp_2"
+                        android:text="+"
+                        android:textSize="18sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/intervalChips"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_2"
+                    android:orientation="horizontal" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveSettings"
+                    style="@style/BtnPrimary"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/btn_h_lg"
+                    android:layout_marginTop="@dimen/sp_4"
+                    android:text="保存设置" />
+
+                <TextView
+                    android:id="@+id/settingsSummary"
+                    style="@style/TextBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_3" />
+
+                <TextView
+                    android:id="@+id/settingsHint"
+                    style="@style/TextCaption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_1"
+                    android:text="可填范围：开拍阈值 30~250 bpm；停止阈值须小于开拍阈值（迟滞防抖）；间隔 1~600 秒，任意秒数都支持——相机固件不支持该秒数时会自动改用 App 定时器实现。" />
+
+                <!-- 折叠区 1：相机激活（一次性配置） -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="@dimen/sp_6"
+                    android:background="@color/border" />
+
+                <LinearLayout
+                    android:id="@+id/toggleCameraSetup"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/collapse_row_h"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/TextBody"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="相机激活（AppId / SecretKey）" />
+
+                    <TextView
+                        android:id="@+id/chevronCamera"
+                        style="@style/TextBody"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="›"
+                        android:textColor="@color/text_tertiary" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/cameraSetupBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <EditText
+                            android:id="@+id/appIdInput"
+                            style="@style/InputHb"
+                            android:layout_width="0dp"
+                            android:layout_height="@dimen/touch_min"
+                            android:layout_weight="1"
+                            android:hint="激活 AppId"
+                            android:inputType="text" />
+
+                        <EditText
+                            android:id="@+id/secretKeyInput"
+                            style="@style/InputHb"
+                            android:layout_width="0dp"
+                            android:layout_height="@dimen/touch_min"
+                            android:layout_marginStart="@dimen/sp_2"
+                            android:layout_weight="1"
+                            android:hint="激活 SecretKey"
+                            android:inputType="textPassword" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnActivate"
+                        style="@style/BtnSecondary"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/btn_h"
+                        android:layout_marginTop="@dimen/sp_2"
+                        android:text="激活相机" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/border" />
+
+                <!-- 折叠区 2：服务器上传地址（一次性配置） -->
+                <LinearLayout
+                    android:id="@+id/toggleServerUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/collapse_row_h"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/TextBody"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="服务器上传地址" />
+
+                    <TextView
+                        android:id="@+id/chevronServer"
+                        style="@style/TextBody"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="›"
+                        android:textColor="@color/text_tertiary" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/serverUrlBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <EditText
+                        android:id="@+id/uploadUrlInput"
+                        style="@style/InputHb"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/touch_min"
+                        android:hint="https://…/api/jobs"
+                        android:inputType="textUri" />
+
+                    <TextView
+                        android:id="@+id/serverUrlCurrent"
+                        style="@style/TextCaption"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/sp_2"
+                        tools:text="当前生效：https://your-server.example.com/api/jobs" />
+                </LinearLayout>
+
+                <!-- 危险区：**全界面唯一一处危险色**，且两个动作刻意分开 -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="@dimen/sp_6"
+                    android:background="@color/border" />
+
+                <TextView
+                    style="@style/TextH2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_4"
+                    android:text="连接管理" />
+
+                <TextView
+                    style="@style/TextCaption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_1"
+                    android:text="两个动作代价不同：「停止」只停心率侧，相机 WiFi 连接保留；「断开」只断相机，心率源不受影响。" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStopHeartRate"
+                    style="@style/BtnWarn"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/btn_h"
+                    android:layout_marginTop="@dimen/sp_3"
+                    android:text="停止心率触发" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDisconnectCamera"
+                    style="@style/BtnDanger"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/btn_h"
+                    android:layout_marginTop="@dimen/sp_2"
+                    android:text="断开相机" />
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ─────────── ④ 诊断 ─────────── -->
+        <ScrollView
+            android:id="@+id/panelDiagnostics"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/page_padding">
+
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/CardHb"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="@dimen/sp_4">
+
+                        <TextView
+                            style="@style/TextH2"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="连接自检" />
+
+                        <!-- 自检行由 MainActivity 按真实状态生成，
+                             避免把「哪些项要检查」硬编码进布局 -->
+                        <LinearLayout
+                            android:id="@+id/selfCheckContainer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_2"
+                            android:orientation="vertical" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnSelfCheck"
+                            style="@style/BtnSecondary"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/btn_h"
+                            android:layout_marginTop="@dimen/sp_3"
+                            android:text="重新自检" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_4"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/TextBody"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="浅色主题" />
+
+                        <TextView
+                            style="@style/TextCaption"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="默认深色：户外取景时屏幕反射更少" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchLightTheme"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_5"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/TextH2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="运行日志" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCopyLog"
+                        style="@style/BtnSmall"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="复制" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnClearLog"
+                        style="@style/BtnSmall"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:layout_marginStart="@dimen/sp_2"
+                        android:text="清空" />
+                </LinearLayout>
+
+                <!-- 终端：浅色主题下也保持深底，保证日志可读 -->
+                <ScrollView
+                    android:id="@+id/logScroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="320dp"
+                    android:layout_marginTop="@dimen/sp_2"
+                    android:background="@drawable/bg_terminal"
+                    android:nestedScrollingEnabled="true"
+                    android:padding="@dimen/sp_3">
+
+                    <TextView
+                        android:id="@+id/logText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:lineSpacingMultiplier="1.85"
+                        android:text="日志:"
+                        android:textColor="@color/term_hl"
+                        android:textIsSelectable="true"
+                        android:textSize="@dimen/fs_terminal" />
+                </ScrollView>
+
+                <TextView
+                    style="@style/TextCaption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_3"
+                    android:text="日志同时镜像到 logcat（标签 HeartbeatUI），可用 adb logcat -s HeartbeatUI 抓取。" />
+            </LinearLayout>
+        </ScrollView>
+    </FrameLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/border" />
+
+    <!-- ═══════════ 底部 Tab ═══════════ -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_surface"
+        android:elevation="0dp"
+        app:itemIconTint="@color/nav_item_tint"
+        app:itemTextColor="@color/nav_item_tint"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/nav_menu" />
+
+</LinearLayout>

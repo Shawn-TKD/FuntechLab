@@ -1,0 +1,23 @@
+[Unit]
+Description=Daydreamer durable video generation worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=daydreamer
+Group=daydreamer
+WorkingDirectory=/opt/daydreamer/project
+EnvironmentFile=/etc/daydreamer/service.env
+ExecStart=/opt/daydreamer/venv/bin/python -m daydreamer_agent.web.worker
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/daydreamer /opt/daydreamer/project/data /opt/daydreamer/project/outputs
+
+[Install]
+WantedBy=multi-user.target

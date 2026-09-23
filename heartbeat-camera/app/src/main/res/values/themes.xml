@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  应用主题。父主题是 Material3 的 DayNight —— 保持不动：
+  1) 它给 values / values-night 自动切换提供了基础；
+  2) 工程已经依赖 Material 1.13.0，Slider / NavigationBar / MaterialCardView 等
+     可以直接用，不必按设计规范里「不引入 Material」的那套手写控件方案。
+
+  这里把 V15 的语义色映射到 Material 的语义槽位，让系统组件（滑块、Tab、卡片、
+   进度条）自动跟着设计 token 走，而不是在每个控件上单独指定颜色。
+-->
+<resources>
+
+    <style name="Theme.HeartbeatCamera" parent="Theme.Material3.DayNight.NoActionBar">
+
+        <!-- 主色：蓝色系（选中 / 高亮 / 主操作） -->
+        <item name="colorPrimary">@color/accent_solid</item>
+        <item name="colorOnPrimary">#FFFFFFFF</item>
+        <item name="colorPrimaryContainer">@color/accent_soft</item>
+        <item name="colorOnPrimaryContainer">@color/accent</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorOnSecondary">#FFFFFFFF</item>
+
+        <!-- 错误槽位 = 语义危险色（只用于「停止 / 断开」这类真危险动作） -->
+        <item name="colorError">@color/danger</item>
+        <item name="colorOnError">#FFFFFFFF</item>
+        <item name="colorErrorContainer">@color/danger_soft</item>
+        <item name="colorOnErrorContainer">@color/danger_text</item>
+
+        <!-- 表面层级 -->
+        <item name="android:colorBackground">@color/bg_base</item>
+        <item name="colorOnBackground">@color/text_primary</item>
+        <item name="colorSurface">@color/bg_surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/bg_surface_2</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+
+        <!-- 描边 -->
+        <item name="colorOutline">@color/border</item>
+        <item name="colorOutlineVariant">@color/border</item>
+        <item name="colorControlNormal">@color/text_secondary</item>
+        <item name="colorControlActivated">@color/accent</item>
+        <item name="colorControlHighlight">@color/accent_soft</item>
+
+        <!-- 窗口 -->
+        <item name="android:windowBackground">@color/bg_base</item>
+        <item name="android:statusBarColor">@color/bg_base</item>
+        <item name="android:navigationBarColor">@color/bg_base</item>
+    </style>
+
+</resources>

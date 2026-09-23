@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  V15 设计 Token · 浅色主题（values/）
+
+  ⚠️ 深色才是默认主题（见 HeartbeatApp 里的 setDefaultNightMode(MODE_NIGHT_YES)），
+  所以运行时实际生效的是 values-night/colors.xml。本文件是「浅色可选主题」，
+  通过诊断页的开关切换。
+
+  命名规则：语义名（bg_base / hr / accent…），**不再使用**「控件名」命名的颜色。
+  文件末尾保留了 V14 的旧颜色名做别名，避免历史代码与布局一次性全改带来的风险。
+-->
+<resources>
+
+    <!-- ===== 表面（由深到浅 / 由底到顶） ===== -->
+    <color name="bg_base">#F4F5F7</color>
+    <color name="bg_surface">#FFFFFF</color>
+    <color name="bg_surface_2">#F0F2F5</color>
+    <color name="bg_surface_3">#E6E9EE</color>
+    <color name="border">#E4E7EC</color>
+    <color name="border_strong">#CDD3DC</color>
+
+    <!-- ===== 文本 ===== -->
+    <color name="text_primary">#101828</color>
+    <color name="text_secondary">#5A6473</color>
+    <color name="text_tertiary">#6E7787</color>
+
+    <!-- ===== 语义 ===== -->
+    <!-- 心率红：**只**用于心率数值与录制态，绝不兼作危险色 -->
+    <color name="hr">#E5484D</color>
+    <color name="hr_soft">#1FE5484D</color>          <!-- 12% alpha -->
+    <color name="accent">#2563EB</color>
+    <color name="accent_solid">#2563EB</color>
+    <color name="accent_soft">#1F2563EB</color>
+    <color name="ok">#16A34A</color>
+    <color name="ok_soft">#1F16A34A</color>
+    <color name="warn">#D97706</color>
+    <color name="warn_soft">#1FD97706</color>
+    <color name="danger">#DC2626</color>
+    <color name="danger_soft">#1FDC2626</color>
+    <color name="danger_text">#B91C1C</color>
+
+    <!-- ===== 终端（浅色主题下终端仍保持深底，保证日志可读） ===== -->
+    <color name="term_bg">#05070A</color>
+    <color name="term_time">#4B5563</color>
+    <color name="term_info">#58A6FF</color>
+    <color name="term_ok">#3FB950</color>
+    <color name="term_warn">#D29922</color>
+    <color name="term_err">#F85149</color>
+    <color name="term_hl">#E6EDF3</color>
+
+    <!-- ===== V14 兼容别名（勿删：旧布局/旧代码仍在引用） ===== -->
+    <color name="background">@color/bg_base</color>
+    <color name="heart_rate">@color/hr</color>
+    <color name="input_bg">@color/bg_surface_2</color>
+
+</resources>
