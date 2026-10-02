@@ -4,7 +4,7 @@ from pathlib import Path
 
 from daydreamer_agent.domain.errors import FieldValidationError, ValidationError
 from daydreamer_agent.event_extraction.media import chunk_ranges, extraction_settings, inspect_video, prepare_chunk
-from daydreamer_agent.event_extraction.validation import response_schema, validate_card, validate_response
+from daydreamer_agent.event_extraction.validation import response_schema, validate_card, validate_response, validate_schema
 from daydreamer_agent.storage.files import digest, file_hash, read_json, write_json
 
 
@@ -31,7 +31,7 @@ class EventExtraction:
         return run_id
 
     def stage(self, run_id, name, context, rules, *, video=None, fps=2):
-        """Persist responses before validation; only one repair, including across resumes."""
+        """Persist every response; one repair, plus bounded legacy migrations."""
         path = self.store.path(run_id) / "stages" / name
         basis = digest({"rules": rules, "context": context, "video_sha256": file_hash(video) if video else None,
                         "model": self.provider.model, "fps": fps, "version": 1})
@@ -42,18 +42,38 @@ class EventExtraction:
                 raise ValidationError("已保存的提取输入发生变化，请创建新任务。")
             validate_response(saved["result"], rules["schema"], context)
             return saved["result"]
+        if video is not None and callable(getattr(self.provider, "observe", None)):
+            # Multimodal requests cannot enforce the nested card schema. Cache
+            # grounded observations, then use strict schema in a text-only call.
+            observed = self.observe_video(path, basis, context, video, fps, name)
+            if observed["status"] != "ready":
+                result = {"status": observed["status"], "issues": observed["issues"], "card": None}
+            else:
+                self.progress("视频观察已保存，正在整理生活事件卡：" + name)
+                result = self.stage(run_id, name + "/structured-v4", {
+                    **context, "visual_observations": observed["observations"],
+                    "task": "仅将visual_observations整理成事件卡；不添加观察未提供的事实或时间。引用仅使用给定素材ID及观察中的时间。若缺少必要依据返回needs_resolution，不能编造。"
+                }, rules, fps=fps)
+            validate_response(result, rules["schema"], context)
+            write_json(checkpoint, {"basis": basis, "result": result, "extraction_protocol": "observation_then_schema_v4"})
+            return result
         repair = None
         legacy_boundary_repair = None
         legacy_second = False
+        legacy_schema_repair = None
         for attempt in (1, 2, 3):
+            response_path = path / f"response-{attempt}.json"
             if attempt == 3:
-                if not (legacy_boundary_repair and legacy_second):
+                if legacy_boundary_repair and legacy_second:
+                    repair = legacy_boundary_repair
+                    response_path = path / "response-repair-v2.json"
+                    self.progress("旧事件卡时间边界修正升级：保留首次完整内容，按具体字段重新核对一次。")
+                elif legacy_schema_repair:
+                    repair = legacy_schema_repair
+                    response_path = path / "response-repair-v3.json"
+                    self.progress("旧视频理解格式修正升级：显式提供完整字段结构，重新核对一次。")
+                else:
                     break
-                # One bounded migration for old exhausted endpoint failures.
-                # Original responses remain untouched; reuse the complete first card.
-                repair = legacy_boundary_repair
-                self.progress("旧事件卡时间边界修正升级：保留首次完整内容，按具体字段重新核对一次。")
-            response_path = path / (f"response-{attempt}.json" if attempt < 3 else "response-repair-v2.json")
             if response_path.exists():
                 response = read_json(response_path)
                 if response["basis"] != basis:
@@ -65,7 +85,7 @@ class EventExtraction:
                 request_context = {**context, **({"repair": repair} if repair else {})}
                 response = self.provider.generate(rules["prompt"], request_context, response_schema(rules["schema"]), video=video, fps=fps)
                 response["basis"] = basis
-                response["validation_version"] = 2
+                response["validation_version"] = 3
                 write_json(response_path, response)
             try:
                 if response["finish_reason"] != "stop":
@@ -80,11 +100,47 @@ class EventExtraction:
                           "instruction": "核对field和expected，保留其他有效内容，返回完整事件卡；禁止用{}省略数组条目，禁止只返回补丁。"}
                 if isinstance(exc, FieldValidationError):
                     repair.update(field=exc.field, expected=exc.expected)
+                    if (attempt == 2 and video is not None and response.get("validation_version", 1) < 3
+                            and exc.field.startswith("$.card.") and "缺少必填字段" in exc.expected):
+                        legacy_schema_repair = deepcopy(repair)
                     if (attempt == 1 and "validation_version" not in response
                             and exc.field.startswith("$.card.key_frames[") and exc.field.endswith(".timestamp_seconds")):
                         legacy_boundary_repair = deepcopy(repair)
                 self.progress("事件卡校验未通过：" + message)
         raise ValidationError("事件卡修正后仍未通过检查：" + repair["error"])
+
+    def observe_video(self, path, basis, context, video, fps, name):
+        schema = {"type": "object", "properties": {
+            "status": {"type": "string", "enum": ["ready", "no_event", "needs_resolution"]},
+            "issues": {"type": "array", "items": {"type": "string"}}, "observations": {"type": "string"}},
+            "required": ["status", "issues", "observations"], "additionalProperties": False}
+        repair = None
+        for attempt in (1, 2):
+            target = path / f"observation-v4-{attempt}.json"
+            if target.exists():
+                response = read_json(target)
+                if response["basis"] != basis:
+                    raise ValidationError("视频观察的输入指纹不匹配，请创建新任务。")
+            else:
+                self.progress("正在读取视频画面：" + name + ("（修正观察格式）" if repair else ""))
+                response = self.provider.observe({**context, **({"repair": repair} if repair else {})}, video=video, fps=fps)
+                response["basis"] = basis
+                write_json(target, response)
+            try:
+                if response["finish_reason"] != "stop":
+                    raise ValidationError("视频观察未完整结束。")
+                observed = json.loads(response["content"])
+                validate_schema(observed, schema)
+                if observed["status"] == "ready":
+                    if observed["issues"] or not observed["observations"].strip():
+                        raise ValidationError("ready必须有非空文字观察且issues为空。")
+                elif not observed["issues"] or any(not issue.strip() for issue in observed["issues"]):
+                    raise ValidationError("非ready必须说明无法整理事件的原因。")
+                return observed
+            except (ValueError, ValidationError) as exc:
+                message = str(exc) if isinstance(exc, ValidationError) else "视频观察不是合法JSON。"
+                repair = {"error": message, "previous_output": response["content"]}
+        raise ValidationError("视频观察修正后仍未通过：" + repair["error"])
 
     def run(self, run_id):
         with self.store.lock(run_id):

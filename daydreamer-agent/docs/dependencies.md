@@ -26,3 +26,5 @@
 - FFmpeg 滤镜：https://ffmpeg.org/ffmpeg-filters.html
 
 WanVideo适配wan3.0-video-prime，采用异步提交、任务编号查询与下载；提示词按20000字符校验。首帧续接使用ratio=adaptive，关闭原生音轨和提示词自动改写。本地单镜制作时长仍限定3–15秒。Qwen使用结构化JSON输出，当前关闭思考模式。
+
+当前视频默认MiniMax/MiniMax-H3，BailianVideo复用百炼异步任务接口。首帧使用模型绑定的临时OSS上传；7000字符提示词、4–15秒、768P。旧Wan任务保留兼容。

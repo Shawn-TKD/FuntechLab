@@ -75,3 +75,12 @@ outputs/event-cards/<run_id>/
 - [百炼结构化输出](https://help.aliyun.com/zh/model-studio/qwen-structured-output)：Qwen3.8-Max支持严格JSON Schema。
 
 应用默认30分钟输入上限属于本地流程设置，不是模型服务的最长时长声明。
+
+
+## 视频理解结构化修复（2026-09-25）
+
+视频理解与事件卡整理均使用qwen3.8-max。百炼的视频输入会将json_schema降级为json_object，因此视频阶段只输出status、issues和observations文字。观察内容记录动作时间范围、关键画面位置与可见细节，不分析声音。程序保存观察响应后，另发纯文本请求，以严格JSON Schema整理七项事件卡；不新增观察中没有的事实或时间。
+
+每段的观察响应保存在stages/part-xxx/observation-v4-1.json（必要时一次修正），纯文本整理阶段保存在structured-v4/。每步最多首次加一次格式修正；恢复会复用已保存观察与已收到响应，不重置修正次数。旧的失败原始响应保留；已完成事件卡直接复用。新旧流程使用相同的本地字段、引用和时间边界校验。
+
+官方接口限制：https://help.aliyun.com/zh/model-studio/qwen-structured-output

@@ -64,15 +64,19 @@ form_and_space 明确目标、路径、支撑和遮挡关系；非写实不要�
 
 包含 `music_direction`、`sound_motifs`（数组）及 `speech_policy`。speech_policy 明确仅背景音乐与音效，无旁白、对白、演唱、人声采样或原始人声音轨。
 
+背景音乐可选。music_direction允许明确写“全片不使用背景音乐”，也可指定配乐适用的剧情节点及边界，不默认每镜都有音乐；sound_motifs允许空数组。禁止人声也包括吟唱。
+
 ### shots
 
 每镜包含：
 
 - `shot_id`、`beat_ids`、`source_event_ids`、`source_refs`。
-- `duration_seconds`：已知约束下的时长，或 null；另用 `duration_basis` 标记 confirmed、proposal、unspecified，不将建议写成确定配置。
+- `duration_seconds`：新紧凑策略须为明确的合法整数；旧策略或不带该策略的通用故事仍可为 null；另用 `duration_basis` 标记 confirmed、proposal、unspecified，不将建议写成确定配置。
 - `start_state`、`end_state`、`transition_to_next`：包含剧情进展的起止状态及动作承接；最后一镜 transition_to_next 为 null，但不要求整场事件结束。不要仅记录车筐、镜头或背景位置。
 - `prompt`：只有下列四个键，不把配乐或参数增加为第五项。
 - `audio`：music、sfx、continuity，记录本镜声音及跨镜衔接，无对白文本。
+
+audio.music保留非空字符串，无配乐写“本镜不使用背景音乐”；需要配乐时写明进入前无配乐、剧情/动作触发的进入点、克制的配器与强弱、退出条件及后续无配乐区间。audio.sfx为字符串数组，可为空。audio.continuity分别描述环境/动作声与音乐的衔接，不自动让音乐延续。程序把声音追加到最终视频提示词，不扩展prompt的四个视觉字段。
 
 ```json
 {
@@ -94,3 +98,11 @@ form_and_space 明确目标、路径、支撑和遮挡关系；非写实不要�
 生成时直接遵守上述约束，不增加事后内容核查、评分、审核报告或因自评分数触发的重写。checks 固定为空数组。Agent 保留已有的本地 JSON、引用、时长和状态契约校验及有限格式修复，不调用模型审阅故事或生成媒体。
 
 每镜仅通过 beat_ids 关联它实际推进的脚本段落。Agent 将持续目标、前镜结束进展、当前关联段落和本镜动作范围传入视频提示词；不传入后续段落让视频模型提前演完。一个 beat 跨镜时，以本镜 start_state/end_state 限定执行范围，前镜发生的动作仅作背景，不重演。
+
+## 新任务的节奏和环境声
+
+自动总长默认优先15–30秒，短内容不补满15秒，超过30秒需有动作或因果上的必要性，默认最多60秒。以Agent传入的制作约束为准，显式时长优先。不要通过无意义停留、重复移动、音乐收尾或多塞事件填时长。
+
+环境声不默认贯穿全片，避免持续风噪、轰鸣与嘶声；必要动作声清楚，保留尾音和自然留白。持续声须说明声源及必要区间，不将所有底声跨镜延续。
+
+Agent的新内部规划schema另含timing_reason，记录reason、extension_reason及extension_beat_ids。该字段只在Agent要求内部规划时输出，不添加到本公共故事包或四项画面prompt中。新自动规划给出具体秒数；旧null与已保存任务继续兼容。

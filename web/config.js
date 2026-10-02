@@ -1,6 +1,11 @@
 (() => {
   let currentJob;
-  const requestedJob = new URLSearchParams(location.search).get('job');
+  let previousJob = '';
+  try { previousJob = localStorage.getItem('daydreamer.previousJob') || ''; } catch {}
+  if (!/^[a-f0-9]{32}$/.test(previousJob)) previousJob = '';
+  // Temporary playback override: clear pinnedJob to restore normal selection.
+  const pinnedJob = '';
+  const requestedJob = pinnedJob || new URLSearchParams(location.search).get('job');
   function sleep(signal) {
     return new Promise((resolve, reject) => {
       if (signal.aborted) return reject(new DOMException('Cancelled', 'AbortError'));
@@ -14,7 +19,8 @@
     respectReducedMotion: false, videoFit: 'cover',
     async resolveVideo({ signal }) {
       while (true) {
-        const response = await fetch(requestedJob ? '/api/jobs/' + encodeURIComponent(requestedJob) : '/api/videos/next', { signal });
+        const nextUrl = '/api/videos/next' + (previousJob ? '?previous=' + encodeURIComponent(previousJob) : '');
+        const response = await fetch(requestedJob ? '/api/jobs/' + encodeURIComponent(requestedJob) : nextUrl, { signal, cache: 'no-store' });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || '暂时无法获取片段');
         const job = requestedJob ? data : data.job;
@@ -24,7 +30,12 @@
           continue;
         }
         currentJob = job.id;
-        if (job.state === 'ready') { document.querySelector('#status').textContent = ''; return job.video_url; }
+        if (job.state === 'ready') {
+          previousJob = job.id;
+          try { localStorage.setItem('daydreamer.previousJob', previousJob); } catch {}
+          document.querySelector('#status').textContent = '';
+          return job.video_url;
+        }
         if (['failed', 'paused'].includes(job.state)) throw new Error(job.message);
         document.querySelector('#status').textContent = job.message || '幻想片段正在准备中';
         await sleep(signal);

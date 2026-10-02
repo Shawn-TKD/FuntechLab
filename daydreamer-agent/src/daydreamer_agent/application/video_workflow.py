@@ -1,4 +1,6 @@
 """Bridge event extraction to generation with a durable child-task link."""
+from daydreamer_agent.providers.video_models import capabilities
+from daydreamer_agent.application.settings import audio_policy
 from copy import copy
 from pathlib import Path
 
@@ -9,19 +11,30 @@ from daydreamer_agent.prompts.video_compiler import RATIOS
 from daydreamer_agent.memory.repository import load_memory
 from daydreamer_agent.storage.files import digest, read_json, write_json
 from daydreamer_agent.storage.jobs_sqlite import JobStore
+from daydreamer_agent.story.timing import validate_timing_constraints
 
 
 def validate_source_options(args, config):
     """Reject unusable generation options before paying for video understanding."""
     defaults = config.get("workflow", {})
+    audio_policy(config, "manual" if args.audio else getattr(args, "audio_mode", None))
+    spec = capabilities(config["video"]["model"])
     duration = args.duration if args.duration is not None else (config["production"]["duration_seconds"] or defaults.get("duration_seconds", 12))
+    duration = None if duration == "" else duration
     ratio = args.ratio or config["video"]["aspect_ratio"] or defaults.get("aspect_ratio", "16:9")
     resolution = args.resolution or config["video"]["resolution"] or defaults.get("resolution", "720P")
     mode = args.continuity or config["video"].get("continuity_mode", "frame_chain")
-    if type(duration) is not int or duration < 3 or ratio not in RATIOS or resolution not in {"480P", "720P", "1080P"}:
+    if (duration is not None and (type(duration) is not int or duration < spec["minimum"])) or ratio not in RATIOS or resolution not in spec["resolutions"]:
         raise ValidationError("全流程制作参数无效，请检查时长、画幅和分辨率。")
-    if mode not in {"frame_chain", "single_take"} or (mode == "single_take" and duration > 15):
+    if mode not in {"frame_chain", "single_take"} or (mode == "single_take" and duration is not None and duration > 15):
         raise ValidationError("连续模式无效；single_take最多15秒。")
+    from daydreamer_agent.story.pacing import freeze_policy
+    constraints = {"video_model": config["video"]["model"], "duration_seconds": duration,
+                   "max_duration_seconds": defaults.get("max_duration_seconds"), "continuity_mode": mode}
+    freeze_policy(constraints, config)
+    validate_timing_constraints(constraints)
+    if duration is None and defaults.get("max_duration_seconds") is None:
+        raise ValidationError("自动时长需要配置workflow.max_duration_seconds。")
     load_memory(args.project / config["storage"]["memory_directory"], args.world_id or config["memory"]["world_id"], args.memory)
 
 
@@ -38,6 +51,7 @@ def run_video_workflow(args, config, generation_store, media, credentials, *, cr
             raise ValidationError("该编号不是视频理解任务。")
         if "generation_options" not in job:
             options = {name: getattr(args, name) for name in ("world_id", "duration", "ratio", "resolution", "continuity")}
+            options["audio_mode"] = getattr(args, "audio_mode", None)
             for name in ("memory", "audio"):
                 value = getattr(args, name)
                 options[name] = str(value.resolve()) if value else None
@@ -68,6 +82,15 @@ def run_video_workflow(args, config, generation_store, media, credentials, *, cr
         # Audio may explicitly be supplied on a later resume; otherwise retain the original choice.
         if args.audio:
             child_args.audio = args.audio
+            child_args.audio_mode = "manual"
+        elif getattr(args, "audio_mode", None):
+            child_args.audio_mode = args.audio_mode
+            if args.audio_mode != "manual":
+                child_args.audio = None
+        if args.audio or getattr(args, "audio_mode", None):
+            job["generation_options"].update(audio_mode=child_args.audio_mode,
+                                              audio=str(child_args.audio.resolve()) if child_args.audio else None)
+            extraction_store.save(run_id, job)
         frozen_config = read_json(path / "input/config.json")
         child_id = job.get("generation_run_id")
         if not child_id:

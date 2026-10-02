@@ -62,7 +62,7 @@ class Media:
         except ValueError:
             raise ValidationError("FFprobe 返回格式错误。") from None
 
-    def check_clip(self, path, parameters, *, require_audio=False):
+    def check_clip(self, path, parameters, *, require_audio=False, source=False):
         result = self.probe(path)
         videos = [s for s in result.get("streams", []) if s.get("codec_type") == "video"]
         if not videos:
@@ -74,8 +74,16 @@ class Media:
             width, height = int(stream["width"]), int(stream["height"])
         except (KeyError, ValueError, ZeroDivisionError):
             raise ValidationError("视频缺少有效的时长、尺寸或帧率。") from None
-        if not math.isfinite(duration) or abs(duration - parameters["duration"]) > 0.3 or fps <= 0 or min(width, height) <= 0:
-            raise ValidationError("视频时长或帧率不符合请求。")
+        if not math.isfinite(fps) or fps <= 0 or min(width, height) <= 0:
+            raise ValidationError(f"视频帧率或尺寸无效：fps={fps}，尺寸={width}×{height}。")
+        target = parameters["duration"]
+        # Raw generations may have a small tail. Trim it before extracting the
+        # continuation frame; never relax the final edited-video contract.
+        shorter = 0.3
+        longer = min(1.0, target * 0.15) if source else 0.3
+        if not math.isfinite(duration) or not target - shorter - 1e-6 <= duration <= target + longer + 1e-6:
+            kind = "模型原片" if source else "剪辑成片"
+            raise ValidationError(f"{kind}时长不符合要求：目标{target:g}秒，实际{duration:.3f}秒；允许短{shorter:g}秒、长{longer:g}秒。")
         expected_ratio = float(Fraction(parameters["ratio"].replace(":", "/")))
         if abs(width / height / expected_ratio - 1) > 0.02:
             raise ValidationError("视频画幅与请求不符。")
@@ -84,8 +92,17 @@ class Media:
         has_audio = any(s.get("codec_type") == "audio" for s in result.get("streams", []))
         if require_audio and not has_audio:
             raise ValidationError("正式成片缺少音频轨道。")
+        if require_audio:
+            audio = next(s for s in result["streams"] if s.get("codec_type") == "audio")
+            try:
+                audio_duration = float(audio.get("duration") or result["format"]["duration"])
+                if not math.isfinite(audio_duration) or abs(audio_duration - target) > 0.3:
+                    raise ValueError
+            except (KeyError, TypeError, ValueError):
+                raise ValidationError("正式成片音轨时长与画面不符。") from None
         self.execute([self.ffmpeg, "-nostdin", "-v", "error", "-xerror", "-protocol_whitelist", "file,pipe", "-i", str(Path(path).resolve()), "-map", "0:v:0", "-map", "0:a?", "-f", "null", "-"])
-        return {"duration": duration, "width": width, "height": height, "fps": fps, "has_audio": has_audio}
+        return {"duration": duration, "width": width, "height": height, "fps": fps, "has_audio": has_audio,
+                "validation_stage": "source" if source else "edited", "target_duration": target}
 
     def check_audio(self, path):
         result = self.probe(path)
@@ -113,20 +130,22 @@ class Media:
         temporary.replace(target)
 
     def extract_tail(self, prepared_clip, target, duration):
-        # Select the last frame of the exact trimmed, 30fps clip used in the final concat.
+        # Keep the final decoded frame, including when the edited duration has
+        # an allowed rounding error. Do not infer its index from target seconds.
         target = Path(target)
         target.parent.mkdir(parents=True, exist_ok=True)
         temporary = target.with_name(target.stem + ".part.png")
-        frame_index = round(duration * 30) - 1
-        self.execute([self.ffmpeg, "-nostdin", "-y", "-v", "error", "-protocol_whitelist", "file,pipe", "-i", str(Path(prepared_clip).resolve()),
-                      "-vf", f"select=eq(n\\,{frame_index})", "-frames:v", "1", "-update", "1", str(temporary)])
+        self.execute([self.ffmpeg, "-nostdin", "-y", "-v", "error", "-protocol_whitelist", "file,pipe", "-sseof", "-1", "-i", str(Path(prepared_clip).resolve()),
+                      "-map", "0:v:0", "-an", "-fps_mode", "passthrough", "-update", "1", str(temporary)])
         if not temporary.exists() or temporary.stat().st_size == 0:
             raise ValidationError("未能提取实际剪辑末帧。")
         temporary.replace(target)
 
-    def compose(self, run_path, clips, tracks, parameters, *, preview=False, prepared=False):
+    def compose(self, run_path, clips, tracks, parameters, *, preview=False, prepared=False, native_sources=None):
         self.require_tools()
         run_path = Path(run_path).resolve()
+        if native_sources is not None and (preview or tracks or len(native_sources) != len(clips)):
+            raise ValidationError("原生声音、手动配音和无声预览不能混用，原片数量必须与镜头一致。")
         work = run_path / "composition"
         work.mkdir(exist_ok=True)
         parts = []
@@ -142,6 +161,8 @@ class Media:
         self.execute([self.ffmpeg, "-nostdin", "-y", "-v", "error", "-f", "concat", "-safe", "1", "-protocol_whitelist", "file,pipe", "-i", "concat.txt", "-an", "-c:v", "copy", "-movflags", "+faststart", str(silent)], cwd=work)
         if preview:
             return silent
+        if native_sources is not None:
+            return self.compose_native(run_path, silent, clips, native_sources, parameters)
         total = parameters["duration"]
         command = [self.ffmpeg, "-nostdin", "-y", "-v", "error", "-protocol_whitelist", "file,pipe", "-i", str(silent)]
         filters, labels = [], []
@@ -160,5 +181,58 @@ class Media:
         command += ["-filter_complex", ";".join(filters), "-map", "0:v:0", "-map", "[aout]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", str(total), "-movflags", "+faststart", str(temporary)]
         self.execute(command)
         self.check_clip(temporary, parameters, require_audio=True)
+        temporary.replace(final)
+        return final
+
+    def compose_native(self, run_path, silent, clips, sources, parameters):
+        """Reuse the verified visual edit, adding audio from untouched model clips.
+
+        Continuation-frame hashes remain stable. Decode/concatenate audio in one
+        graph and encode AAC once, avoiding encoder padding at every boundary.
+        None is an explicitly declared silent shot, never inferred from no music.
+        """
+        command = [self.ffmpeg, "-nostdin", "-y", "-v", "error", "-protocol_whitelist", "file,pipe", "-i", str(silent)]
+        filters, labels = [], []
+        input_index = 1
+        for index, (source, (_, duration)) in enumerate(zip(sources, clips)):
+            label = f"native{index}"
+            if source is None:
+                filters.append(f"anullsrc=r=48000:cl=stereo,atrim=duration={duration},asetpts=PTS-STARTPTS[{label}]")
+            else:
+                info = self.probe(source)
+                audios = [s for s in info.get("streams", []) if s.get("codec_type") == "audio"]
+                videos = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
+                if not audios or not videos:
+                    raise ValidationError("模型原片缺少音轨或画面，不能生成原生有声成片：" + Path(source).name)
+                try:
+                    offset = float(audios[0].get("start_time", 0)) - float(videos[0].get("start_time", 0))
+                    if not math.isfinite(offset) or abs(offset) >= duration:
+                        raise ValueError
+                    audio_duration = float(audios[0].get("duration") or info["format"]["duration"])
+                    if not math.isfinite(audio_duration) or audio_duration <= 0 or offset + audio_duration < duration - 0.3:
+                        raise ValueError
+                except (KeyError, TypeError, ValueError):
+                    raise ValidationError("模型音轨起始时间无效或音轨不足以覆盖镜头。") from None
+                command += ["-protocol_whitelist", "file,pipe", "-i", str(Path(source).resolve())]
+                base = f"[{input_index}:a:0]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,asetpts=PTS-STARTPTS"
+                if offset < 0:
+                    base += f",atrim=start={-offset},asetpts=PTS-STARTPTS"
+                elif offset > 0:
+                    base += f",adelay={round(offset * 48000)}S:all=1"
+                filters.append(base + f",apad,atrim=duration={duration}[{label}]")
+                input_index += 1
+            labels.append(f"[{label}]")
+        filters.append("".join(labels) + f"concat=n={len(labels)}:v=0:a=1[aout]")
+        final = run_path / "final/video.mp4"
+        final.parent.mkdir(exist_ok=True)
+        temporary = final.with_name("video.part.mp4")
+        command += ["-filter_complex", ";".join(filters), "-map", "0:v:0", "-map", "[aout]",
+                    "-c:v", "copy", "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "192k",
+                    "-t", str(parameters["duration"]), "-movflags", "+faststart", str(temporary)]
+        self.execute(command)
+        self.check_clip(temporary, parameters, require_audio=True)
+        audio_duration = self.check_audio(temporary)
+        if abs(audio_duration - parameters["duration"]) > 0.3:
+            raise ValidationError("原生声音成片时长不符合要求。")
         temporary.replace(final)
         return final

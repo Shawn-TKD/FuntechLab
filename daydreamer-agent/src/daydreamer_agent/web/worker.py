@@ -28,6 +28,8 @@ class Progress:
                 message = "事件卡已生成，开始创作幻想片段"
             elif "创作" in line or "分镜" in line or "主题" in line:
                 message = "正在创作故事与分镜"
+            elif "原生声音" in line:
+                message = "正在合成画面与声音"
             elif "视频" in line or "片段" in line or "拼接" in line:
                 message = "正在生成和拼接幻想片段"
             else:
@@ -56,7 +58,8 @@ def process(store, job, project):
             video = Path(result["delivery"]["video"]).resolve()
             if not video.is_relative_to(project / "outputs") or not video.is_file():
                 raise ValueError("Unexpected delivery path")
-            store.update(job["id"], state="ready", video=str(video), message="幻想片段已准备好")
+            message = "幻想片段已准备好，可打开声音播放" if result["status"] == "completed" else "无声预览已准备好"
+            store.update(job["id"], state="ready", video=str(video), message=message)
         else:
             store.update(job["id"], state="paused", message="任务需要继续处理或补充素材，可恢复原任务。")
     except AgentError as exc:

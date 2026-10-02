@@ -12,6 +12,17 @@
   const tools = document.querySelector('.playback-tools');
   const resume = document.querySelector('#resume');
   const sound = document.querySelector('#sound');
+  const soundLabel = document.querySelector('#sound-label');
+  try { video.muted = localStorage.getItem('daydreamer.sound') !== 'on'; } catch {}
+  const syncSoundButton = () => {
+    const label = video.muted ? '打开声音' : '关闭声音';
+    sound.classList.toggle('unmuted', !video.muted);
+    sound.setAttribute('aria-label', label);
+    sound.title = label;
+    soundLabel.textContent = label;
+  };
+  video.addEventListener('volumechange', syncSoundButton);
+  syncSoundButton();
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const shouldReduceMotion = () => config.respectReducedMotion === true && reduceMotion.matches;
   let state = 'idle', progress = 0, frame = 0, generation = 0, controller;
@@ -159,7 +170,7 @@
       setState('playing');
       if (document.hidden) { resume.textContent = '继续播放'; resume.hidden = false; return; }
       try { await video.play(); }
-      catch { resume.hidden = false; }
+      catch { resume.textContent = video.muted ? '点击播放' : '点击播放并打开声音'; resume.hidden = false; }
     } catch (error) {
       await delay;
       if (id !== generation || error.name === 'AbortError') return;
@@ -192,11 +203,14 @@
     try { await video.play(); resume.hidden = true; }
     catch { resume.textContent = '点按重试'; }
   });
-  sound.addEventListener('click', () => {
+  sound.addEventListener('click', async () => {
     video.muted = !video.muted;
-    sound.classList.toggle('unmuted', !video.muted);
-    sound.setAttribute('aria-label', video.muted ? '打开声音' : '关闭声音');
-    sound.title = video.muted ? '打开声音' : '关闭声音';
+    syncSoundButton();
+    try { localStorage.setItem('daydreamer.sound', video.muted ? 'off' : 'on'); } catch {}
+    if (state === 'playing' && video.paused) {
+      try { await video.play(); resume.hidden = true; }
+      catch { resume.textContent = '点击播放'; resume.hidden = false; }
+    }
   });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && state === 'playing') {

@@ -106,9 +106,15 @@ class Store:
         with self.connect() as db:
             return [dict(row) for row in db.execute("SELECT * FROM jobs ORDER BY created DESC LIMIT 100")]
 
-    def next(self):
+    def next(self, previous_id=None):
         with self.connect() as db:
-            row = db.execute("SELECT * FROM jobs WHERE state='ready' AND played=0 ORDER BY created LIMIT 1").fetchone()
+            row = db.execute("SELECT * FROM jobs WHERE state='ready' AND played=0 "
+                             "ORDER BY updated DESC, created DESC LIMIT 1").fetchone()
+            if not row:
+                history = db.execute("SELECT * FROM jobs WHERE state='ready' AND played<>0").fetchall()
+                if history:
+                    alternatives = [item for item in history if item['id'] != previous_id]
+                    row = secrets.choice(alternatives or history)
             if not row:
                 row = db.execute("SELECT * FROM jobs WHERE state IN ('queued','processing') ORDER BY created LIMIT 1").fetchone()
             return dict(row) if row else None

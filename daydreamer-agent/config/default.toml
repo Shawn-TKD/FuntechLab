@@ -5,11 +5,17 @@ csv_path = ""
 
 [workflow]
 # run命令在事件卡和命令行均未指定参数时采用。
-duration_seconds = 12
+# 自动时长优先15–30秒；短内容不凑时长，必要时才延长，最多60秒。
+duration_seconds = ""
+preferred_min_duration_seconds = 15
+preferred_max_duration_seconds = 30
+max_duration_seconds = 60
 aspect_ratio = "16:9"
-resolution = "720P"
+resolution = "768P"
 
 [story]
+sound_prompt_version = 2
+pacing_prompt_version = 1
 provider = "bailian"
 model = "qwen3.8-max"
 request_timeout_seconds = 600
@@ -30,8 +36,8 @@ temperature = 1.0
 
 [video]
 provider = "bailian"
-model = "wan3.0-video-prime"
-continuation_model = "wan3.0-video-prime"
+model = "MiniMax/MiniMax-H3"
+continuation_model = "MiniMax/MiniMax-H3"
 # 第一段文生视频，后续段基于前段实际剪辑末帧生成。
 continuity_mode = "frame_chain"
 generation_concurrency = 1
@@ -47,10 +53,14 @@ duration_seconds = ""
 review_before_video = true
 
 [audio]
+mode = "native"
+# 音乐可选；required_for_final 只要求有效音轨，不要求有背景音乐。
+# 明确需要全静音且模型没有音轨的镜头，可在新任务中填入镜头ID。
+silent_shots = []
 music_provider = ""
 sfx_provider = ""
 required_for_final = true
-preserve_generated_clip_audio = false
+preserve_generated_clip_audio = true
 allow_speech = false
 
 [checks]

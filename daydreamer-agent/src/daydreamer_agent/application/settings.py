@@ -67,6 +67,11 @@ def load_settings(root):
     if config["checks"]["media_content"]:
         raise ValidationError("当前版本未实现媒体内容检查。")
     video_retry_policy(config)
+    audio_policy(config)
+    if type(config["story"].get("sound_prompt_version", 0)) is not int or config["story"].get("sound_prompt_version", 0) not in (0, 1, 2):
+        raise ValidationError("story.sound_prompt_version 必须为0、1或2。")
+    from daydreamer_agent.story.pacing import configured_policy
+    configured_policy(config)
     timeout = config["story"].get("request_timeout_seconds", 600)
     if type(timeout) is not int or not 30 <= timeout <= 1800:
         raise ValidationError("story.request_timeout_seconds必须为30至1800秒的整数。")
@@ -76,6 +81,30 @@ def load_settings(root):
     from daydreamer_agent.story.creativity import policy
     policy(config)
     return config
+
+
+def audio_policy(config, mode=None):
+    """Frozen pre-native jobs keep their previous manual/preview behavior."""
+    audio = config.get("audio", {})
+    selected = mode if mode is not None else audio.get("mode")
+    if selected is None:
+        selected = "native" if audio.get("preserve_generated_clip_audio", False) else "legacy"
+    if selected not in {"native", "manual", "off", "legacy"} or (mode == "legacy" or audio.get("mode") == "legacy"):
+        raise ValidationError("audio.mode 必须为 native、manual 或 off。")
+    silent = audio.get("silent_shots", [])
+    from daydreamer_agent.storage.files import identifier
+    if not isinstance(silent, list) or any(not isinstance(item, str) for item in silent) or len(set(silent)) != len(silent):
+        raise ValidationError("audio.silent_shots 必须为不重复的镜头ID数组。")
+    for shot_id in silent:
+        identifier(shot_id)
+    if selected == "native":
+        from daydreamer_agent.providers.video_models import capabilities
+        models = [config["video"]["model"]]
+        if config["video"].get("continuity_mode") == "frame_chain":
+            models.append(config["video"].get("continuation_model"))
+        if any(not capabilities(model)["native_audio"] for model in models):
+            raise ValidationError("当前模型组合未启用原生音轨，请选择 manual 或 off。")
+    return selected, silent
 
 
 def video_retry_policy(config):

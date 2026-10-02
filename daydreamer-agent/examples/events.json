@@ -1,0 +1,16 @@
+{
+  "event_cards": [
+    {
+      "event_id": "demo-bike-01",
+      "summary": "虚构测试事件：我骑车经过一小片落叶，轻按车铃后继续向前。",
+      "ordered_actions": ["握住车把", "按响车铃", "沿路继续骑行"],
+      "details": ["车铃在右手附近", "路面散落几片叶子"],
+      "source_refs": [],
+      "sound_clues": ["车铃声", "轮胎滚动声"],
+      "unknowns": ["未提供任何真实视频或关键帧"]
+    }
+  ],
+  "story_memory": null,
+  "production_constraints": {"duration_seconds": 6, "aspect_ratio": "16:9", "resolution": "480P"},
+  "current_preferences": []
+}

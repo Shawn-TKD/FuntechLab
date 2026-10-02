@@ -2,11 +2,11 @@ from pathlib import Path
 import time
 
 from daydreamer_agent.domain.errors import ProviderError, ValidationError
-from daydreamer_agent.application.settings import video_retry_policy
+from daydreamer_agent.application.settings import audio_policy, video_retry_policy
 from daydreamer_agent.memory.repository import save_draft
 from daydreamer_agent.providers.audio import stage_audio
 from daydreamer_agent.providers.wan import prepare_submission
-from daydreamer_agent.prompts.video_compiler import TEMPLATE_VERSION, compile_shot, validate_video_request
+from daydreamer_agent.prompts.video_compiler import compile_shot, validate_video_request
 from daydreamer_agent.storage.files import digest, file_hash, identifier, read_json, write_json
 from daydreamer_agent.story.generator import generate_story
 from daydreamer_agent.story.seeded import generate_seeded_story
@@ -60,7 +60,8 @@ class Pipeline:
             model = config["video"].get("continuation_model") if chain and index else config["video"]["model"]
             if not model:
                 raise ValidationError("未配置后续片段的图生视频模型。")
-            item = compile_shot(story, shot, inputs["production_constraints"], model)
+            item = compile_shot(story, shot, inputs["production_constraints"], model,
+                                sound_version=config.get("story", {}).get("sound_prompt_version", 0))
             if chain and index:
                 item["predecessor_shot_id"] = story["shots"][index - 1]["shot_id"]
             requests[shot["shot_id"]] = item
@@ -84,6 +85,29 @@ class Pipeline:
         inputs = read_json(self.store.path(run_id) / "input/normalized.json")
         return inputs["production_constraints"].get("continuity_mode") == "frame_chain"
 
+    def audio_options(self, run_id):
+        config = read_json(self.store.path(run_id) / "input/config.json")
+        return audio_policy(config, self.store.load(run_id).get("audio_mode"))
+
+    def select_audio(self, run_id, mode=None, manifest=None):
+        if manifest and mode not in (None, "manual"):
+            raise ValidationError("--audio 只能与 manual 模式一起使用。")
+        if manifest:
+            mode = "manual"
+            if not Path(manifest).is_file():
+                raise ValidationError("找不到音频清单。")
+        if mode is None:
+            return
+        config = read_json(self.store.path(run_id) / "input/config.json")
+        audio_policy(config, mode)
+        with self.store.lock(run_id):
+            job = self.store.load(run_id)
+            previous, _ = audio_policy(config, job.get("audio_mode"))
+            if previous != mode or manifest:
+                job.update(audio_mode=mode, outputs_stale=True)
+                job["audio_manifest"] = str(Path(manifest).resolve()) if manifest else None
+                self.store.save(run_id, job)
+
     def prepare_boundary(self, run_id, state, parameters):
         path = self.store.path(run_id)
         clip = path / state["clip"]
@@ -105,21 +129,23 @@ class Pipeline:
         return {"shot_id": state["shot_id"], "attempt": state["attempt"],
                 "prepared_sha256": state["prepared_sha256"], "tail_sha256": state["tail_sha256"]}
 
-    def run_full(self, run_id, *, audio_manifest=None, wait_seconds=3600):
+    def run_full(self, run_id, *, audio_manifest=None, audio_mode=None, wait_seconds=3600):
         """Run or resume each stage, stopping on any unresolved state."""
+        self.select_audio(run_id, audio_mode, audio_manifest)
+        mode, _ = self.audio_options(run_id)
         job = self.store.load(run_id)
         if job.get("story_digest"):
             self.verified_story(run_id)
         else:
             job = self.plan(run_id)
         if job["status"] == "completed":
-            return self.compose(run_id, audio_manifest) if audio_manifest else job
+            return self.compose(run_id, audio_manifest, preview=mode == "off")
         if not job.get("story_digest"):
             return job
         job = self.render(run_id, wait_seconds=wait_seconds)
         if job["status"] != "awaiting_audio":
             return job
-        return self.compose(run_id, audio_manifest, preview=audio_manifest is None)
+        return self.compose(run_id, audio_manifest, preview=mode == "off" or (mode == "legacy" and audio_manifest is None))
 
     def submit_attempt(self, run_id, state, request, predecessor, frame):
         path = self.store.path(run_id)
@@ -142,6 +168,31 @@ class Pipeline:
         state.update(status="submitted", submitted_at=time.time())
         self.store.save_shot(run_id, state)
         return attempt_path / "clip.mp4"
+
+    def accept_downloaded_clip(self, run_id, state, clip, parameters, *, chain):
+        """Validate the source, then prepare the exact boundary used for chaining."""
+        path = self.store.path(run_id)
+        sha = file_hash(clip)
+        if state.get("sha256") and state["sha256"] != sha:
+            raise ValidationError("已下载原片发生变化，不能直接复用；请核对文件。")
+        recovered = state.get("failure") == "technical_validation"
+        state.update(sha256=sha, clip=str(clip.relative_to(path)))
+        try:
+            info = self.media.check_clip(clip, parameters, source=True)
+        except ValidationError:
+            state.update(status="failed", failure="technical_validation")
+            self.store.save_shot(run_id, state)
+            self.store.status(run_id, "failed", failed_stage="video", failed_shot=state["shot_id"])
+            raise
+        state.update(status="succeeded", media=info)
+        state.pop("failure", None)
+        self.store.save_shot(run_id, state)
+        if chain:
+            self.prepare_boundary(run_id, state, parameters)
+        if recovered:
+            self.store.audit(run_id, "local_clip_recovered", shot_id=state["shot_id"], attempt=state["attempt"],
+                             source_sha256=sha, source_duration=info["duration"], target_duration=parameters["duration"])
+            self.progress("已复用下载原片并完成剪辑校验：" + state["shot_id"])
 
     def render(self, run_id, *, wait_seconds=0):
         if self.media is None or self.video_provider is None:
@@ -196,6 +247,9 @@ class Pipeline:
                     self.store.status(run_id, "submission_unknown")
                     return self.store.load(run_id)
                 if state["status"] == "failed":
+                    if state.get("failure") == "technical_validation" and state.get("remote_status") == "SUCCEEDED" and clip.is_file():
+                        self.accept_downloaded_clip(run_id, state, clip, request["parameters"], chain=chain)
+                        continue
                     self.store.status(run_id, "failed", failed_stage="video", failed_shot=shot_id)
                     return self.store.load(run_id)
                 if state["status"] == "pending":
@@ -215,19 +269,7 @@ class Pipeline:
                         if not output.get("video_url"):
                             raise ProviderError("成功任务没有提供视频下载地址，可稍后恢复查询。")
                         self.video_provider.download(output["video_url"], clip)
-                        try:
-                            info = self.media.check_clip(clip, request["parameters"])
-                        except ValidationError:
-                            state["status"] = "failed"
-                            state["failure"] = "technical_validation"
-                            self.store.save_shot(run_id, state)
-                            self.store.status(run_id, "failed", failed_stage="video", failed_shot=shot_id)
-                            raise
-                        state.update(status="succeeded", sha256=file_hash(clip), media=info,
-                                     clip=str(clip.relative_to(path)))
-                        self.store.save_shot(run_id, state)
-                        if chain:
-                            self.prepare_boundary(run_id, state, request["parameters"])
+                        self.accept_downloaded_clip(run_id, state, clip, request["parameters"], chain=chain)
                         break
                     if remote in {"FAILED", "CANCELED", "UNKNOWN"}:
                         state["status"] = "submission_unknown" if remote == "UNKNOWN" else "failed"
@@ -301,15 +343,21 @@ class Pipeline:
             self.store.save_shot(run_id, state)
             self.store.status(run_id, "video_generating")
 
-    def compose(self, run_id, audio_manifest=None, *, preview=False):
+    def compose(self, run_id, audio_manifest=None, *, preview=False, audio_mode=None):
+        if preview and (audio_manifest or audio_mode not in (None, "off")):
+            raise ValidationError("无声预览不能同时指定配音。")
+        self.select_audio(run_id, audio_mode, audio_manifest)
+        mode, silent_shots = self.audio_options(run_id)
+        preview = preview or mode == "off"
+        native = mode == "native" and not preview
         with self.store.lock(run_id):
             path = self.store.path(run_id)
             job = self.store.load(run_id)
             story = self.verified_story(run_id)
             chain = self.is_chain(run_id)
-            if job["status"] == "completed" and not audio_manifest and not preview:
-                return job
-            clips, selected = [], []
+            if not set(silent_shots) <= {shot["shot_id"] for shot in story["shots"]}:
+                raise ValidationError("audio.silent_shots 包含不存在的镜头。")
+            clips, selected, native_sources = [], [], []
             previous = None
             for shot in story["shots"]:
                 state = self.store.shot(run_id, shot["shot_id"])
@@ -318,6 +366,7 @@ class Pipeline:
                 clip = path / state["clip"]
                 if not clip.exists() or file_hash(clip) != state["sha256"]:
                     raise ValidationError("镜头文件缺失或变化，请先恢复视频任务。")
+                native_sources.append(None if shot["shot_id"] in silent_shots else clip)
                 if chain:
                     if previous and state.get("predecessor") != self.dependency(previous):
                         raise ValidationError("片段依赖的前段版本不匹配，不能混合剪辑。")
@@ -330,16 +379,31 @@ class Pipeline:
                 previous = state
             constraints = read_json(path / "input/normalized.json")["production_constraints"]
             parameters = {"duration": sum(duration for _, duration in clips), "ratio": constraints["aspect_ratio"], "resolution": constraints["resolution"]}
-            if not audio_manifest and not preview:
+            effective_mode = "off" if preview else ("native" if native else "manual")
+            existing = path / "manifest.json"
+            if job["status"] == "completed" and not job.get("outputs_stale") and not audio_manifest and not preview and existing.is_file():
+                saved = read_json(existing)
+                output = (path / saved["final"]).resolve()
+                if (saved.get("audio_mode", "manual") == effective_mode and saved.get("selected_shots") == selected
+                        and output.is_relative_to(path.resolve()) and output.is_file() and file_hash(output) == saved.get("sha256")):
+                    return job
+            if not audio_manifest and mode == "manual":
+                audio_manifest = job.get("audio_manifest")
+            if not audio_manifest and not preview and not native:
                 self.store.status(run_id, "awaiting_audio")
                 return self.store.load(run_id)
-            tracks = [] if preview else stage_audio(audio_manifest, path, parameters["duration"], self.media)
+            tracks = [] if preview or native else stage_audio(audio_manifest, path, parameters["duration"], self.media)
+            native_record = [{"shot_id": shot["shot_id"], "source_sha256": self.store.shot(run_id, shot["shot_id"])["sha256"],
+                              "silent": shot["shot_id"] in silent_shots} for shot in story["shots"]] if native else []
             timeline_name = "preview-timeline.json" if preview else "timeline.json"
-            write_json(path / "composition" / timeline_name, {"shots": selected, "audio": tracks, "parameters": parameters, "transitions": "hard_cuts"})
+            write_json(path / "composition" / timeline_name, {"shots": selected, "audio": tracks, "audio_mode": effective_mode,
+                       "native_audio": native_record, "parameters": parameters, "transitions": "hard_cuts"})
             if not preview:
-                self.store.status(run_id, "composing")
+                self.store.status(run_id, "composing", outputs_stale=True)
             try:
-                final = self.media.compose(path, clips, tracks, parameters, preview=preview, prepared=chain)
+                self.progress("正在拼接画面并保留原生声音" if native else "正在合成视频")
+                options = {"native_sources": native_sources} if native else {}
+                final = self.media.compose(path, clips, tracks, parameters, preview=preview, prepared=chain, **options)
                 info = self.media.check_clip(final, parameters, require_audio=not preview)
             except Exception:
                 if not preview:
@@ -347,14 +411,21 @@ class Pipeline:
                 raise
             if preview:
                 write_json(path / "composition/preview-manifest.json", {"run_id": run_id, "selected_shots": selected, "media": info,
+                           "audio_mode": "off", "delivery_kind": "preview",
                            "continuity_method": "frame_chain" if chain else "independent", "media_content_checked": False,
                            "preview": str(final.relative_to(path)), "sha256": file_hash(final)})
-                self.store.status(run_id, job["status"], preview=str(final), outputs_stale=False,
+                self.store.status(run_id, "awaiting_audio" if job["status"] == "completed" else job["status"], preview=str(final), outputs_stale=False,
                                   work_ready_at=job.get("work_ready_at") or now())
                 return {"run_id": run_id, "status": "preview_ready", "preview": str(final)}
+            versions = {shot["shot_id"]: read_json(path / "shots" / shot["shot_id"] / "video_request.json").get("template_version", "unknown")
+                        for shot in story["shots"]}
+            unique_versions = set(versions.values())
             manifest = {"run_id": run_id, "demo": job.get("demo", False), "story_digest": job["story_digest"],
-                        "skill_digest": digest(read_json(path / "input/skill.json")), "template_version": TEMPLATE_VERSION,
+                        "skill_digest": digest(read_json(path / "input/skill.json")),
+                        "template_version": next(iter(unique_versions)) if len(unique_versions) == 1 else "mixed",
+                        "template_versions": versions,
                         "selected_shots": selected, "audio": tracks, "media": info, "media_content_checked": False,
+                        "audio_mode": effective_mode, "native_audio": native_record, "delivery_kind": "final",
                         "continuity_method": "frame_chain" if chain else ("single_take" if len(clips) == 1 else "independent"),
                         "final": str(final.relative_to(path)), "sha256": file_hash(final)}
             write_json(path / "manifest.json", manifest)

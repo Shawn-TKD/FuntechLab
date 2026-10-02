@@ -4,12 +4,16 @@ from daydreamer_agent.domain.errors import ValidationError
 from daydreamer_agent.domain.continuity import state_description
 from daydreamer_agent.storage.files import digest
 from daydreamer_agent.story.validation import PROMPT_KEYS
+from daydreamer_agent.story.sound import sound_execution
+from daydreamer_agent.story.pacing import PACING_EXECUTION
 
-TEMPLATE_VERSION = "2.1"
+from daydreamer_agent.providers.video_models import H3, capabilities
+
+TEMPLATE_VERSION = "2.3"
 RATIOS = {"16:9", "9:16", "1:1", "4:3", "3:4", "21:9"}
 
 
-def compile_shot(story, shot, constraints, model):
+def compile_shot(story, shot, constraints, model, *, sound_version=1):
     style = story["visual_style"]
     labels = {"medium": "画面媒介", "form_and_space": "造型与空间", "palette": "色彩", "materials": "材质", "lighting": "光线", "motion_character": "运动表现"}
     sections = ["【视点约束】\n全程第一人称，摄像机代表经历者的眼睛；视点运动有身体行动依据。仅呈现当前视野可见的事件，身后变化可用声音传达，不使用全知视角。"]
@@ -43,23 +47,37 @@ def compile_shot(story, shot, constraints, model):
         if constraints.get("continuity_mode") == "frame_chain" and story["shots"][0]["shot_id"] != shot["shot_id"]:
             sections.append("【首帧续接】\n提供的首帧是上一段实际结束画面，以它的空间、物件、色彩与光照作为本段起点，延续正在进行的动作。只推进后续事件，不重演上一段，不重新建立场景。")
     sections.extend(f"【{name}】\n{shot['prompt'][name]}" for name in PROMPT_KEYS)
+    if constraints.get("pacing_prompt_version"):
+        sections.append("【本镜节奏】\n" + PACING_EXECUTION)
     if not continuous or shot["end_state"] != state_description(shot["continuity"]["end"]):
         sections.append("【结束状态】\n" + shot["end_state"])
+    if capabilities(model)["native_audio"]:
+        sound = shot["audio"]
+        sections.extend(("【音效】\n" + ("\n".join(sound["sfx"]) or "不添加未指定的环境声或动作音效。"),
+                         "【背景音乐】\n" + sound["music"],
+                         "【声音衔接】\n" + sound["continuity"],
+                         "【声音限制】\n" + sound_execution(sound_version)))
     prompt = "\n\n".join(sections)
-    if len(prompt) > 20000:
+    if len(prompt) > capabilities(model)["prompt_limit"]:
         raise ValidationError(f"镜头 {shot['shot_id']} 提示词过长，请精简分镜；不会自动截断。")
     parameters = {"duration": shot["duration_seconds"], "ratio": constraints.get("aspect_ratio"), "resolution": constraints.get("resolution"), "audio": False, "prompt_extend": False}
+    if model == H3:
+        parameters.pop("audio")
+        parameters.pop("prompt_extend")
     request = {"model": model, "input": {"prompt": prompt}, "parameters": parameters}
-    return {"template_version": TEMPLATE_VERSION, "story_digest": digest(story), "request": request}
+    version = TEMPLATE_VERSION if sound_version == 2 or constraints.get("pacing_prompt_version") else "2.2"
+    return {"template_version": version, "story_digest": digest(story), "request": request}
 
 
 def validate_video_request(request):
-    if request.get("model") != "wan3.0-video-prime":
-        raise ValidationError("视频模型已切换为 wan3.0-video-prime；旧任务请导入故事创建新任务。")
+    spec = capabilities(request.get("model"))
+    prompt = request.get("input", {}).get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > spec["prompt_limit"]:
+        raise ValidationError(f"视频提示词必须非空且不超过{spec['prompt_limit']}字符。")
     p = request["parameters"]
-    if type(p.get("duration")) is not int or not 3 <= p["duration"] <= 15:
-        raise ValidationError("每镜视频时长必须是 3–15 秒的整数；请修改故事并创建新任务。")
+    if type(p.get("duration")) is not int or not spec["minimum"] <= p["duration"] <= 15:
+        raise ValidationError(f"每镜视频时长必须是 {spec['minimum']}–15 秒的整数；请修改故事并创建新任务。")
     if p.get("ratio") not in RATIOS:
         raise ValidationError("生成前需要明确有效画幅，例如 16:9 或 9:16。")
-    if p.get("resolution") not in {"480P", "720P", "1080P"}:
-        raise ValidationError("生成前需要明确分辨率：480P、720P 或 1080P。")
+    if p.get("resolution") not in spec["resolutions"]:
+        raise ValidationError("当前视频模型支持的成片分辨率：" + "、".join(sorted(spec["resolutions"])))

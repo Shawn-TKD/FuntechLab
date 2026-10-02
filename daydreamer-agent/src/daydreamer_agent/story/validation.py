@@ -1,5 +1,6 @@
 import math
 
+from daydreamer_agent.providers.video_models import minimum_duration
 from daydreamer_agent.domain.errors import ValidationError
 from daydreamer_agent.domain.continuity import validate_continuity
 from daydreamer_agent.storage.files import canonical, identifier
@@ -31,6 +32,7 @@ def refs(values, allowed, name, *, nonempty=True):
 
 
 def validate_story(story, inputs):
+    constraints = inputs.get("production_constraints", {})
     required = ("schema_version", "status", "source_event_ids", "memory_basis", "assumptions", "theme", "script", "visual_style", "audio_plan", "shots", "checks", "issues")
     obj(story, required, "story")
     require(story["schema_version"] == "1.0", "故事 schema_version 必须是 1.0。")
@@ -88,9 +90,11 @@ def validate_story(story, inputs):
             require(shot["duration_basis"] == "unspecified", "未指定时长的 basis 应为 unspecified。")
         else:
             require(type(duration) in (int, float) and math.isfinite(duration) and duration > 0, "镜头时长必须为正数。")
-            require(type(duration) is int and 3 <= duration <= 15, "当前视频模型每镜必须是 3–15 秒整数；短总时长需合并剧情到更少镜头。")
+            require(type(duration) is int and minimum_duration(constraints) <= duration <= 15, f"当前视频模型每镜必须是 {minimum_duration(constraints)}–15 秒整数；短总时长需合并剧情到更少镜头。")
             total += duration
         obj(shot.get("audio"), ("music", "sfx", "continuity"), "shot.audio")
+        text_fields(shot["audio"], ("music", "continuity"), "shot.audio")
+        require(isinstance(shot["audio"]["sfx"], list) and all(isinstance(x, str) for x in shot["audio"]["sfx"]), "shot.audio.sfx 必须是文字数组。")
         require("transition_to_next" in shot, "缺少镜头衔接描述。")
     require(covered == beats, "存在未被任何分镜覆盖的剧情段落。")
     mode = inputs.get("production_constraints", {}).get("continuity_mode")
@@ -104,6 +108,9 @@ def validate_story(story, inputs):
     target = inputs.get("production_constraints", {}).get("duration_seconds")
     if target is not None:
         require(known_duration and abs(total - target) < 0.01, "分镜总时长与制作约束不符。")
+    cap = inputs.get("production_constraints", {}).get("max_duration_seconds")
+    if cap is not None:
+        require(known_duration and total <= cap, f"分镜总时长必须确定且不超过{cap}秒。")
     memory = inputs.get("story_memory") or {}
     basis = story["memory_basis"]
     obj(basis, ("world_id", "version", "used_ids"), "memory_basis")

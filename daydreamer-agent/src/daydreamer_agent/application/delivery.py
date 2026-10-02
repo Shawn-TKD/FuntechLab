@@ -3,7 +3,7 @@ from pathlib import Path
 import shutil
 
 from daydreamer_agent.domain.errors import ValidationError
-from daydreamer_agent.storage.files import file_hash, read_json, write_json
+from daydreamer_agent.storage.files import digest, file_hash, read_json, write_json
 
 
 def export_delivery(run_path, output, *, preview=True):
@@ -37,7 +37,15 @@ def export_delivery(run_path, output, *, preview=True):
               "exported_video": video.name, "continuity_verified": False}
     if preview:
         record["exported_preview"] = video.name
-        record["audio"] = "未配置音乐和音效，保留无声预览"
+        record["audio"] = "无声预览；可能为主动选择或旧任务尚未配音"
+    else:
+        record["audio_source"] = manifest.get("audio_mode", "manual")
+    record["has_audio"] = manifest.get("media", {}).get("has_audio", False)
+    timing_path = run_path / "story/timing.json"
+    timing = read_json(timing_path) if timing_path.exists() else None
+    if timing and timing.get("story_digest") == digest(story):
+        record["timing"] = timing
+        write_json(output / "时长规划.json", timing)
     write_json(output / "本轮运行记录.json", record)
     duration = sum(shot["duration_seconds"] for shot in story["shots"])
     mode = "首段文生视频，后段以前段实际剪辑末帧续接。" if manifest["continuity_method"] == "frame_chain" else "按分镜顺序合成。"
@@ -45,6 +53,11 @@ def export_delivery(run_path, output, *, preview=True):
              f"{duration}秒" + ("无声预览；" if preview else "成片；") + mode, "",
              "已进行文件技术检查；未做媒体内容检查，尚未验证画面完全连贯。", "",
              "## 主题规则", "", story["theme"]["core_rule"], "", "## 视觉风格", ""]
+    if "timing" in record:
+        reason = record["timing"]["timing_reason"]
+        lines[6:6] = ["时长依据：" + reason["reason"], ""]
+        if reason["extension_reason"]:
+            lines[8:8] = ["超过优先时长的原因：" + reason["extension_reason"], ""]
     for key in ("medium", "form_and_space", "palette", "materials", "lighting", "motion_character"):
         lines.extend([story["visual_style"][key], ""])
     lines.extend(["## 片段脚本", ""])
@@ -57,6 +70,9 @@ def export_delivery(run_path, output, *, preview=True):
         for label, value in shot["prompt"].items():
             lines.extend([f"**{label}**：{value}", ""])
         lines.extend(["结束状态：" + shot["end_state"], ""])
+        lines.extend(["背景音乐：" + shot["audio"]["music"], "",
+                      "音效：" + "；".join(shot["audio"]["sfx"]), "",
+                      "声音衔接：" + shot["audio"]["continuity"], ""])
         at = end
     storyboard = output / "故事与分镜.md"
     storyboard.write_text("\n".join(lines), encoding="utf-8")

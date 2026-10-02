@@ -4,6 +4,9 @@ from daydreamer_agent.domain.errors import ValidationError
 from daydreamer_agent.domain.continuity import continuity_instruction, resolve_continuity_references
 from daydreamer_agent.storage.files import digest, read_json, write_json
 from daydreamer_agent.story.validation import validate_story
+from daydreamer_agent.story.sound import sound_direction
+from daydreamer_agent.story.pacing import pacing_instruction, TIMING_REASON_DIRECTION, timing_record
+from daydreamer_agent.story.timing import fit_plan_timing
 
 STAGES = (
     ("theme", "只生成一个有明确行动目标的幻想情境并输出 theme；先不选画风。"
@@ -37,8 +40,18 @@ def load_skill(directory):
 
 def generate_story(run_path, inputs, skill, provider, progress=lambda _: None):
     run_path = Path(run_path)
+    config_path = run_path / "input/config.json"
+    config = read_json(config_path) if config_path.exists() else {}
+    constraints = inputs.get("production_constraints", {})
+    pacing = pacing_instruction(constraints)
     prior = {}
     for name, instruction in STAGES:
+        if name == "story" and config.get("story", {}).get("sound_prompt_version", 0):
+            instruction += "\n" + sound_direction(config["story"]["sound_prompt_version"])
+        if pacing and name in {"theme", "script", "story"}:
+            instruction += "\n" + pacing
+            if name == "story":
+                instruction += "\n" + TIMING_REASON_DIRECTION + "\n每镜必须给出具体整数秒数，不能为null；仅显式指定总时长时才要求合计相等。"
         mode = inputs.get("production_constraints", {}).get("continuity_mode")
         if mode in {"single_take", "frame_chain"}:
             instruction += "\n" + continuity_instruction(mode)
@@ -70,7 +83,17 @@ def generate_story(run_path, inputs, skill, provider, progress=lambda _: None):
                         if not isinstance(output.get("issues"), list) or not output["issues"]:
                             raise ValidationError("非 ready 状态必须提供 issues。")
                     elif name == "story":
+                        if pacing:
+                            if not isinstance(output.get("shots"), list) or any(not isinstance(s, dict) or "duration_seconds" not in s or "beat_ids" not in s for s in output["shots"]):
+                                raise ValidationError("分镜须为含duration_seconds与beat_ids的对象数组。")
+                            proposed = [shot["duration_seconds"] for shot in output["shots"]]
+                            output = fit_plan_timing(output, constraints)
                         validate_story(output, inputs)
+                        if pacing:
+                            record = timing_record(output, constraints, proposed)
+                            write_json(run_path / "story/plan-timing.json", record)
+                            output.pop("timing_reason")  # Keep the public story contract unchanged.
+                            write_json(run_path / "story/timing.json", {**record, "story_digest": digest(output)})
                     elif name not in output or not output[name]:
                         raise ValidationError("阶段缺少有效内容：" + name)
                     break

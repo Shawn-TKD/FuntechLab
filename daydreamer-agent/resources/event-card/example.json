@@ -1,0 +1,109 @@
+{
+  "basic_info": {
+    "event_id": "event_demo_001",
+    "title": "在亮灯的店门前短暂停留",
+    "time_range": {
+      "start": null,
+      "end": null
+    },
+    "scene": "经过小巷，在店门前短暂停留。"
+  },
+  "event_description": {
+    "summary": "镜头进入小巷，在亮灯的店门前短暂停留，随后继续向前移动。",
+    "sequence": [
+      {
+        "order": 1,
+        "description": "镜头向小巷内移动。",
+        "source_refs": [
+          { "material_id": "material_demo_001", "start_seconds": 0, "end_seconds": 4 }
+        ]
+      },
+      {
+        "order": 2,
+        "description": "镜头在亮灯的店门前短暂停留。",
+        "source_refs": [
+          { "material_id": "material_demo_001", "start_seconds": 4, "end_seconds": 8 }
+        ]
+      },
+      {
+        "order": 3,
+        "description": "镜头继续向前移动，店门逐渐离开画面。",
+        "source_refs": [
+          { "material_id": "material_demo_001", "start_seconds": 8, "end_seconds": 12 }
+        ]
+      }
+    ]
+  },
+  "key_frames": [
+    {
+      "frame_id": "frame_demo_001",
+      "image_uri": null,
+      "material_id": "material_demo_001",
+      "timestamp_seconds": 2,
+      "description": "镜头朝向小巷深处，两侧建筑形成向前延伸的通道。",
+      "reference_focus": ["小巷向远处延伸的空间结构", "向前行进的动作"]
+    },
+    {
+      "frame_id": "frame_demo_002",
+      "image_uri": null,
+      "material_id": "material_demo_001",
+      "timestamp_seconds": 6,
+      "description": "镜头停在店门前，暖色灯光从门内透出。",
+      "reference_focus": ["店门与周围较暗环境的明暗关系", "门前短暂停留的动作"]
+    }
+  ],
+  "audio_info": [
+    {
+      "audio_id": "audio_demo_001",
+      "type": "action",
+      "description": "行进时可以听到脚步声。",
+      "transcript": null,
+      "source_refs": [
+        { "material_id": "material_demo_001", "start_seconds": 0, "end_seconds": 4 }
+      ]
+    },
+    {
+      "audio_id": "audio_demo_002",
+      "type": "environment",
+      "description": "停留期间可以听到清脆的风铃声。",
+      "transcript": null,
+      "source_refs": [
+        { "material_id": "material_demo_001", "start_seconds": 5, "end_seconds": 7 }
+      ]
+    }
+  ],
+  "details_to_preserve": [
+    {
+      "description": "店门透出的暖色灯光。",
+      "value": "保留现实场景中有辨识度的光线特征。",
+      "frame_ids": ["frame_demo_002"],
+      "audio_ids": [],
+      "sequence_orders": [2]
+    },
+    {
+      "description": "短暂停留期间的风铃声。",
+      "value": "建立现实经历与幻想片段之间的听觉联系。",
+      "frame_ids": [],
+      "audio_ids": ["audio_demo_002"],
+      "sequence_orders": [2]
+    },
+    {
+      "description": "进入小巷、短暂停留、继续前行的动作顺序。",
+      "value": "为幻想片段保留真实经历的动作骨架。",
+      "frame_ids": ["frame_demo_001", "frame_demo_002"],
+      "audio_ids": [],
+      "sequence_orders": [1, 2, 3]
+    }
+  ],
+  "selection_info": {
+    "reason": "动作变化清楚，暖色灯光与风铃声可作为幻想片段的现实依据。",
+    "is_duplicate": false,
+    "duplicate_of_event_id": null,
+    "status": "waiting_generation"
+  },
+  "memory_links": {
+    "character_ids": [],
+    "location_ids": [],
+    "object_ids": []
+  }
+}

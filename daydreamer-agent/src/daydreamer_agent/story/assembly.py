@@ -1,4 +1,5 @@
 """Generate only missing fields, then assemble immutable creative stages locally."""
+from daydreamer_agent.providers.video_models import minimum_duration
 from copy import deepcopy
 
 from daydreamer_agent.domain.continuity import STATE_FIELDS, state_description
@@ -6,6 +7,9 @@ from daydreamer_agent.domain.errors import FieldValidationError
 from daydreamer_agent.storage.files import digest, write_json
 from daydreamer_agent.story.creativity import stage_seed
 from daydreamer_agent.story.diversity import ready, request
+from daydreamer_agent.story.timing import fit_plan_timing
+from daydreamer_agent.story.sound import SOUND_DIRECTION, sound_direction
+from daydreamer_agent.story.pacing import pacing_instruction, TIMING_REASON_DIRECTION, timing_record
 from daydreamer_agent.story.validation import collect_memory_ids, refs, require, text_fields, validate_story
 
 
@@ -47,6 +51,12 @@ PLAN_SCHEMA = obj({
         "target_id": {"type": ["string", "null"]}, "description": TEXT, "basis_beat_ids": TEXTS})},
 })
 
+COMPACT_PLAN_SCHEMA = deepcopy(PLAN_SCHEMA)
+COMPACT_PLAN_SCHEMA["properties"]["timing_reason"] = obj({
+    "reason": TEXT, "extension_reason": TEXT, "extension_beat_ids": TEXTS})
+COMPACT_PLAN_SCHEMA["required"].append("timing_reason")
+COMPACT_PLAN_SCHEMA["properties"]["shots"]["items"]["properties"]["duration_seconds"] = {"type": "integer"}
+
 PLAN_PROMPT = """你负责对已经确定的第一人称幻想脚本安排分镜，只输出新增的分镜规划与声音文字方案。
 locked中的theme、script、visual_style已确定，不得改写，也不得在输出中重述这些字段。
 先按自然动作边界划分镜头，每镜仅输出beat_ids、duration_seconds、action_range；action_range简述本镜从哪一步推进到哪一步，不写完整镜头提示词。
@@ -67,14 +77,30 @@ audio只含music、sfx（字符串数组）、continuity，全片只有背景音
 """
 
 
+LEGACY_PLAN_PROMPT, LEGACY_SHOT_PROMPT = PLAN_PROMPT, SHOT_PROMPT
+PLAN_PROMPT += "\n" + SOUND_DIRECTION
+SHOT_PROMPT += "\n" + SOUND_DIRECTION
+
+
 def exact(value, keys, label):
     require(isinstance(value, dict) and set(value) == set(keys), label + "字段必须严格匹配，不能重述已确定内容。")
+
+
+def prepared_plan(output, inputs):
+    result = fit_plan_timing(output, inputs["production_constraints"])
+    # No supplied memory means no memory can have been used. Keep model-origin
+    # source references in the raw response, never promote them to memory IDs.
+    used = result.get("used_memory_ids")
+    if inputs.get("story_memory") is None and isinstance(used, list) and all(isinstance(v, str) for v in used):
+        result["used_memory_ids"] = []
+    return result
 
 
 def validate_plan(output, locked, inputs):
     if not ready(output):
         return output
-    exact(output, PLAN_SCHEMA["properties"], "分镜规划")
+    schema = COMPACT_PLAN_SCHEMA if inputs["production_constraints"].get("pacing_prompt_version") else PLAN_SCHEMA
+    exact(output, schema["properties"], "分镜规划")
     shots = output["shots"]
     require(isinstance(shots, list) and bool(shots), "分镜规划不能为空。")
     constraints = inputs["production_constraints"]
@@ -83,7 +109,7 @@ def validate_plan(output, locked, inputs):
     if constraints.get("shot_limit") is not None:
         require(len(shots) <= constraints["shot_limit"], "镜头数超过shot_limit。")
     beats = {beat["beat_id"]: i for i, beat in enumerate(locked["script"])}
-    covered, last, total, known = set(), -1, 0, True
+    covered, last = set(), -1
     for shot in shots:
         exact(shot, ("beat_ids", "duration_seconds", "action_range"), "镜头规划")
         text_fields(shot, ("action_range",), "镜头规划")
@@ -92,21 +118,17 @@ def validate_plan(output, locked, inputs):
         require(positions == sorted(set(positions)) and positions[0] >= last, "分镜须按脚本顺序推进，不可重复倒退。")
         last = positions[-1]
         covered.update(shot["beat_ids"])
-        duration = shot["duration_seconds"]
-        if duration is None:
-            known = False
-        else:
-            require(type(duration) is int and 3 <= duration <= 15, "每镜须为3至15秒整数。")
-            total += duration
     require(covered == set(beats), "分镜必须覆盖所有脚本段。")
-    target = constraints.get("duration_seconds")
-    if target is not None:
-        require(known and total == target, "分镜规划总时长与制作约束不符。")
+    timed = prepared_plan(output, inputs)
+    for index, shot in enumerate(timed["shots"]):
+        duration = shot["duration_seconds"]
+        if duration is not None and not (type(duration) is int and minimum_duration(constraints) <= duration <= 15):
+            raise FieldValidationError(f"shots[{index}].duration_seconds", f"未指定总时长时，每镜须为{minimum_duration(constraints)}至15秒整数或null。")
     exact(output["audio_plan"], ("music_direction", "sound_motifs"), "声音规划")
     text_fields(output["audio_plan"], ("music_direction",), "声音规划")
     for values in (output["assumptions"], output["audio_plan"]["sound_motifs"]):
         require(isinstance(values, list) and all(isinstance(v, str) for v in values), "声音线索及假设须为文字数组。")
-    refs(output["used_memory_ids"], collect_memory_ids(inputs.get("story_memory") or {}), "used_memory_ids", nonempty=False)
+    refs(timed["used_memory_ids"], collect_memory_ids(inputs.get("story_memory") or {}), "used_memory_ids", nonempty=False)
     require(isinstance(output["world_delta_draft"], list), "记忆增量须为数组。")
     for delta in output["world_delta_draft"]:
         exact(delta, ("change_type", "target_id", "description", "basis_beat_ids"), "记忆增量")
@@ -157,7 +179,7 @@ def build_shot(fragment, item, index, count, previous_end, locked, inputs):
             "audio": deepcopy(fragment["audio"]), "transition_to_next": fragment["transition_to_next"]}
 
 
-def generate_assembly(stage_path, inputs, prior, provider, seed, temperature, progress):
+def generate_assembly(stage_path, inputs, prior, provider, seed, temperature, progress, *, sound_version=0):
     root = stage_path / "assembly-v1"
     locked = {key: deepcopy(prior[key][key]) for key in ("theme", "script", "visual_style")}
     # Creative outputs are provided once as authoritative context, never requested as output.
@@ -165,11 +187,40 @@ def generate_assembly(stage_path, inputs, prior, provider, seed, temperature, pr
                     "production_constraints": inputs["production_constraints"],
                     "story_memory": inputs.get("story_memory"), "current_preferences": inputs.get("current_preferences"),
                     "events": [{key: card[key] for key in ("event_id", "summary", "unknowns") if key in card} for card in inputs["event_cards"]]}
-    plan = request(root, "plan", PLAN_PROMPT, plan_context, provider, stage_seed(seed, 0, "story_plan"), temperature,
+    plan_prompt = LEGACY_PLAN_PROMPT + ("\n" + sound_direction(sound_version) if sound_version else "")
+    shot_prompt = LEGACY_SHOT_PROMPT + ("\n" + sound_direction(sound_version) if sound_version else "")
+    pacing = pacing_instruction(inputs["production_constraints"])
+    schema = PLAN_SCHEMA
+    if pacing:
+        schema = COMPACT_PLAN_SCHEMA
+        plan_prompt = plan_prompt.replace("合计必须等于production_constraints.duration_seconds", "指定总时长时合计必须等于production_constraints.duration_seconds；自动时长按动作需要安排")
+        plan_prompt = plan_prompt.replace("未指定时长可给null，并在assumptions中说明。", "每镜必须填写具体整数秒数，不能为null。")
+        plan_prompt = plan_prompt.replace("输出仅含status、issues、shots、audio_plan、assumptions、used_memory_ids、world_delta_draft。", "输出仅含status、issues、shots、audio_plan、assumptions、used_memory_ids、world_delta_draft、timing_reason。")
+        plan_prompt += "\n" + pacing + "\n" + TIMING_REASON_DIRECTION
+        shot_prompt += "\n" + pacing
+    if minimum_duration(inputs["production_constraints"]) == 4:
+        plan_prompt = plan_prompt.replace("每镜3至15秒", "每镜4至15秒")
+    plan = request(root, "plan", plan_prompt, plan_context, provider, stage_seed(seed, 0, "story_plan"), temperature,
                    lambda output: validate_plan(output, locked, inputs), progress,
-                   request_options={"schema": PLAN_SCHEMA, "max_tokens": 8192})
+                   request_options={"schema": schema, "max_tokens": 8192})
     if plan["status"] != "ready":
         return plan
+    proposed = [shot["duration_seconds"] for shot in plan["shots"]]
+    proposed_memory = deepcopy(plan["used_memory_ids"])
+    plan = prepared_plan(plan, inputs)
+    allocated = [shot["duration_seconds"] for shot in plan["shots"]]
+    record = {"version": 1, "proposed_seconds": proposed,
+               "allocated_seconds": allocated, "target_seconds": inputs["production_constraints"].get("duration_seconds"),
+               "max_seconds": inputs["production_constraints"].get("max_duration_seconds"),
+               "actual_seconds": sum(allocated) if all(value is not None for value in allocated) else None,
+               "proposed_memory_ids": proposed_memory, "used_memory_ids": plan["used_memory_ids"]}
+    if pacing:
+        record.update(timing_record(plan, inputs["production_constraints"], proposed))
+    write_json(root / "plan-timing.json", record)
+    if inputs["production_constraints"].get("duration_seconds") is None and inputs["production_constraints"].get("max_duration_seconds") is not None:
+        progress(f"本次按内容规划总时长：{sum(allocated)}秒（上限{inputs['production_constraints']['max_duration_seconds']}秒）。")
+    if proposed != allocated:
+        progress("分镜时长已自动配平：" + "、".join(map(str, allocated)) + "秒，保留原动作划分。")
     shots, prompt_defaults = [], []
     for index, item in enumerate(plan["shots"]):
         previous_end = shots[-1]["continuity"]["end"] if shots else None
@@ -186,6 +237,9 @@ def generate_assembly(stage_path, inputs, prior, provider, seed, temperature, pr
                    "shot_plan": item, "previous_end": previous_end, "audio_plan": plan["audio_plan"],
                    "world_rules": (inputs.get("story_memory") or {}).get("world_rules", []),
                    "production_constraints": inputs["production_constraints"]}
+        if sound_version:
+            context.update(previous_audio=deepcopy(shots[-1]["audio"]) if shots else None,
+                           next_action_range=plan["shots"][index + 1]["action_range"] if index + 1 < len(plan["shots"]) else None)
         def validate_fragment(output):
             if not ready(output):
                 return output
@@ -197,7 +251,7 @@ def generate_assembly(stage_path, inputs, prior, provider, seed, temperature, pr
             check_inputs = {**inputs, "production_constraints": {**inputs["production_constraints"], "duration_seconds": item["duration_seconds"]}}
             validate_story(assemble(partial_locked, partial_plan, [check_shot], check_inputs), check_inputs)
             return output
-        output = request(root, f"shot-{index + 1:03}", SHOT_PROMPT, context, provider,
+        output = request(root, f"shot-{index + 1:03}", shot_prompt, context, provider,
                          stage_seed(seed, 0, f"shot-{index + 1:03}"), temperature, validate_fragment, progress,
                          request_options={"schema": schema, "max_tokens": 4096})
         if output["status"] != "ready":
@@ -209,6 +263,8 @@ def generate_assembly(stage_path, inputs, prior, provider, seed, temperature, pr
     story = assemble(locked, plan, shots, inputs)
     validate_story(story, inputs)
     write_json(root / "result.json", story)
+    if pacing:
+        write_json(stage_path.parent / "timing.json", {**record, "story_digest": digest(story)})
     write_json(root / "assembly-record.json", {"locked_digests": {key: digest(value) for key, value in locked.items()},
                "story_digest": digest(story), "shot_count": len(shots), "seed": seed,
                "prompt_defaults": prompt_defaults})

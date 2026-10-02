@@ -7,7 +7,7 @@
 在 PowerShell 中运行（任意目录均可）：
 
 ```powershell
-& "C:\Users\Eldon\Downloads\Bold Maker\daydreamer-agent\daydreamer.cmd"
+& ".\daydreamer.cmd"
 ```
 
 弹窗默认选择原始生活视频，随后自动执行：**理解视频 → 保存生活事件卡 → 创作故事与分镜 → 逐段生成视频 → 拼接 → 保存**。无需再次选择生成的JSON，也无需手动切换模块。取消选取不会创建任务。
@@ -20,10 +20,10 @@
 .\daydreamer.cmd "C:\素材目录\生活视频.mp4"
 
 # 已有事件卡也可以直接生成
-.\daydreamer.cmd "C:\Users\Eldon\Downloads\Bold Maker\outputs\daydreamer-prd\生活事件卡_骑自行车02.json"
+.\daydreamer.cmd "examples\events.json"
 ```
 
-未指定制作参数时默认 **12秒、16:9、720P**，事件卡中的制作参数优先。运行采用 Qwen 创作和 Wan 视频模型，后段使用前段实际剪辑末帧续接。每次视频提交超过 **5分钟**仍未完成，会确认状态后最多自动重提一次。请保持运行窗口打开。
+未指定制作参数时默认 **优先15–30秒、按内容确定时长、最长60秒、16:9、768P**，不强制凑满15、30或60秒；仅必要动作与因果表达需要时才超过30秒，并记录延长原因。事件卡或命令行可以指定60秒以内的固定时长。运行采用 Qwen 创作和 MiniMax H3 视频模型，后段使用前段实际剪辑末帧续接。每次视频提交超过 **5分钟**仍未完成，会确认状态后最多自动重提一次。请保持运行窗口打开。已创建任务沿用保存的参数，恢复旧12秒任务不会自动延长。
 
 新创作任务会生成随机种子，并在 Qwen 各阶段请求中明确传入 `seed`。依次生成主题、连续行动脚本、画风、分镜规划，再逐镜生成镜头内容。程序原样保留已确定的主题、脚本和画风，组装最终故事包，不再让模型重写整包JSON。取消独立故事复核；不增加生成后的内容核查、评分或模型改写。已有本地格式、引用、时长和文件校验保留。已取消多候选、随机挑选和历史相似度重写。恢复任务沿用已保存的种子和结果。
 
@@ -35,7 +35,7 @@
 
 创作种子保存在 `data/runs/<任务编号>/input/creativity.json`，新阶段响应和实际请求种子保存在 `story/seeded/responses/`，输出目录附带 `创作随机种子.json`。旧候选任务恢复时复用已选定的阶段，不再继续抽选候选。详见 [随机创作说明](docs/creativity.md)。
 
-音乐和音效服务尚未接入，因此默认导出无声预览。输出位于 `outputs/<生成任务编号>/`，包含视频、完整故事与分镜 JSON、可读分镜和运行记录。从视频启动时，还会一并保存 `生活事件卡.json` 和 `素材提取关联.json`。原始片段与检查点保存在 `data/runs/<生成任务编号>/`，提取记录保存在 `data/extractions/<全流程任务编号>/`。
+新任务默认保留 MiniMax H3 生成的原生声音，直接导出有声成片，无需外部音频清单。声音在分镜规划和逐镜创作时生成，并进入视频提示词；环境声保持低存在感，减少持续风噪、交通底噪、机械轰鸣与科幻嗡鸣，保留必要动作声、尾音和自然留白；背景音乐可选、克制，只在符合剧情和氛围的时段出现，允许全片只有环境声与动作音效。输出位于 `outputs/<生成任务编号>/`，包含视频、完整故事与分镜 JSON、可读分镜和运行记录。从视频启动时，还会一并保存 `生活事件卡.json` 和 `素材提取关联.json`。原始片段与检查点保存在 `data/runs/<生成任务编号>/`，提取记录保存在 `data/extractions/<全流程任务编号>/`。
 
 中断或本次等待结束后，使用屏幕显示的任务编号恢复，复用已完成内容：
 
@@ -59,12 +59,47 @@
 
 Qwen 故事请求默认等待上限为600秒，可通过 `[story].request_timeout_seconds` 调整（30–1800秒）。它与视频生成的5分钟重提规则独立；旧任务未保存该参数时也使用600秒。超时后不会自动重复提交故事请求，可用原任务编号恢复，已完成的事件卡和创作阶段会复用。创作阶段网络错误记录在 `story/seeded/errors/`，包含阶段、种子、耗时及错误原因。
 
+
+## 紧凑内容与时长规划
+
+新任务从主题、脚本阶段就按默认15–30秒组织一段行动，合并重复观察、接近和无进展的移动；保留必要反应和空间过渡，不靠倍速、密集切镜或截断动作缩时。小于15秒已表达清楚则保持更短，显式 `--duration` 或事件卡总时长优先。`single_take`仍最多15秒。
+
+默认配置的 `[workflow].preferred_min_duration_seconds`、`preferred_max_duration_seconds` 分别为15和30，`max_duration_seconds`为60。`run`、`plan`、原视频和网页新任务都冻结这些策略；命令行分步plan仍可稍后指定画幅等参数。超过优先区间的自动方案必须提供必要动作说明与beat引用，超过硬上限则走现有有限修正流程，不机械压缩。
+
+新增 `story/pacing.py` 共享节奏规则；新任务使用 `pacing_prompt_version=1`、`sound_prompt_version=2`。旧任务继续原版本，恢复不会重写创作检查点。新创作的时长决定保存在 `story/timing.json` 和阶段 `plan-timing.json`；导出附带 `时长规划.json`，可读分镜也展示时长及延长依据。导入旧故事不要求补写内部时长理由。
+
+环境声约束通过视频生成提示词实现，允许剧情需要的持续声，但要求明确声源、必要区间及退出条件。现有原生音轨合成保留声音，不新增后期降噪或独立音频生成服务；实际噪音和节奏效果仍需生成后观看、试听。
+
+## 声音模式与旧任务
+
+新任务默认 `[audio].mode = "native"`：保留视频模型原生音轨。`manual` 用本地音频清单替换原声；`off` 输出无声预览。`--audio` 会选择 manual，不能同时指定 native 或 off。无背景音乐不等于无音轨，环境声和动作音效仍会保留。
+
+```powershell
+# 一键入口主动输出无声预览
+.\daydreamer.cmd "生活视频.mp4" -AudioMode off
+
+# 已有任务仅在本地重合成，保留原片声音（这里填写生成任务编号）
+.\.venv\Scripts\python.exe daydreamer.py compose --run 生成任务编号 --audio-mode native
+
+# 一键入口恢复并导出；支持原视频全流程编号或生成编号
+.\daydreamer.cmd -Run 任务编号 -AudioMode native
+
+# 用外部清单替换原声
+.\daydreamer.cmd -Run 任务编号 -AudioManifest "音频清单.json"
+```
+
+旧任务保持创建时的配置和创作检查点，不会自动套用新声音提示词。显式选择 native 后可用已有的 H3 原片重新合成，不重生成已完成镜头；旧原片没有音轨时会报错，不能凭提示词补出声音。`compose` 的成片位于 `data/runs/<生成任务编号>/final/video.mp4`；`run` 同时更新交付目录。原生模式要求所选模型支持原生声音。
+
+为稳定画面续接，`prepared.mp4` 仍是无声的画面中间文件，最终合成从原始 `clip.mp4` 取回对应音轨，同步裁剪并拼接；不会循环铺满音乐，也不会自动放大安静区间。缺音轨会阻止正式完成；仅明确列入 `[audio].silent_shots` 的镜头使用静音轨。`required_for_final` 表达正式输出需有声音轨道，并不要求背景音乐必须出现。
+
+网页首次默认静音播放，点击“打开声音”即可启用并记住选择；浏览器阻止有声自动播放时提供点击继续。原生音轨包含的音乐与音效是混合音轨，跨镜旋律一致性和准确进退仍受视频模型能力影响。程序检查音轨、时长与同步，不自动判断配乐听感或是否含人声。详见 [声音改造说明](docs/背景音乐与音效接入规划.md)。
+
 ## 可选：只从视频提取生活事件卡
 
 运行这一条命令，弹窗选择本地视频：
 
 ```powershell
-& "C:\Users\Eldon\Downloads\Bold Maker\daydreamer-agent\daydreamer.cmd" -Extract
+& ".\daydreamer.cmd" -Extract
 ```
 
 也可在项目目录直接传入视频路径：
@@ -98,11 +133,11 @@ Qwen 故事请求默认等待上限为600秒，可通过 `[story].request_timeou
 
 ## 当前进度
 
-第一版命令行流程已实现：事件卡读取、Qwen 分阶段创作、提示词组装、WanVideo 异步任务与恢复、本地音频接入、视频拼接和归档。音乐与音效的自动生成服务仍待确定。虚拟环境位于本目录的 `.venv`，不共享系统第三方包。
+当前已实现：事件卡读取、Qwen 分阶段创作、提示词组装、视频异步任务与恢复、原生声音保留、本地音频清单替换、视频拼接和归档。声音复用现有视频生成请求，不新增独立音频服务。虚拟环境位于本目录的 `.venv`，不共享系统第三方包。
 
 - 故事模型：`qwen3.8-max`
-- 视频模型：首段 `wan3.0-video-prime`，后段 `wan3.0-video-prime`
-- 新模型统一支持文生视频与首帧续接，原生音轨与自动提示词改写关闭。原有命令无需修改；历史任务保留原模型快照，重做旧故事请用 `import-story` 创建新任务。
+- 视频模型：首段 `MiniMax/MiniMax-H3`，后段 `MiniMax/MiniMax-H3`
+- MiniMax H3 支持文生视频与首帧续接，通过提示词描述声音；不向其传入不支持的 audio 或 prompt_extend 参数。原有命令无需修改；历史任务保留原模型快照，重做旧故事请用 `import-story` 创建新任务。
 - 暂不做媒体内容检查。
 - `run` 一键完成全流程；也可用 `plan` 只生成故事和请求，查看分镜后用 `render` 启动视频生成。
 - `demo` 完全离线；生成的工程测试画面不是模型创作样片。
@@ -183,7 +218,7 @@ python --version
 .\.venv\Scripts\python.exe daydreamer.py demo --with-media
 
 # 调用 Qwen 创作；示例卡是虚构测试数据
-.\.venv\Scripts\python.exe daydreamer.py --credentials-csv '..\credentials.csv' plan --events examples/events.json
+.\.venv\Scripts\python.exe daydreamer.py --credentials-csv '..\credentials.example.csv' plan --events examples/events.json
 
 # 查看任务，或追加 --run 任务编号查看单任务
 .\.venv\Scripts\python.exe daydreamer.py status
@@ -193,10 +228,10 @@ python --version
 
 ```powershell
 # 恢复中断的故事生成
-.\.venv\Scripts\python.exe daydreamer.py --credentials-csv '..\credentials.csv' plan --run <任务编号>
+.\.venv\Scripts\python.exe daydreamer.py --credentials-csv '..\credentials.example.csv' plan --run <任务编号>
 
 # 正式提交视频任务，此命令会使用视频模型配额或产生费用
-.\.venv\Scripts\python.exe daydreamer.py --credentials-csv '..\credentials.csv' render --run <任务编号>
+.\.venv\Scripts\python.exe daydreamer.py --credentials-csv '..\credentials.example.csv' render --run <任务编号>
 
 # 为明确失败的单镜准备新尝试；之后再执行 render
 .\.venv\Scripts\python.exe daydreamer.py retry-shot --run <任务编号> --shot shot-01
@@ -207,7 +242,10 @@ python --version
 # 提交结果未知时，在平台核对后补录原任务编号；不会盲目重发
 .\.venv\Scripts\python.exe daydreamer.py attach-task --run <任务编号> --shot shot-01 --task-id <平台任务编号>
 
-# 镜头全部完成后生成无声预览
+# 镜头全部完成后，按保存的声音模式生成成片
+.\.venv\Scripts\python.exe daydreamer.py compose --run <任务编号>
+
+# 主动生成无声预览
 .\.venv\Scripts\python.exe daydreamer.py compose --run <任务编号> --preview
 
 # 指定背景音乐和音效清单，生成正式成片
@@ -234,11 +272,11 @@ python --version
 
 导入故事执行结构、引用与时长校验；语义复核由导入者负责。不要直接改已有任务的故事或视频请求文件，系统会阻止其与旧镜头混用。
 
-## 音频与输出
+## 手动音频清单与输出
 
-[音频清单示例](examples/audio-manifest.json) 中的路径相对清单文件所在目录。背景音乐会循环铺满成片，音效按 `at_seconds` 放入时间线，`gain` 控制音量。所有原视频音轨均丢弃，避免保留模型生成的人声。清单要求声明 `contains_speech: false`；系统不做自动人声识别，声明不代表已验证。
+[音频清单示例](examples/audio-manifest.json) 中的路径相对清单文件所在目录。仅 manual 模式沿用清单规则：背景音乐会循环铺满成片，音效按 `at_seconds` 放入时间线，`gain` 控制音量。manual 会替换原视频音轨，native 则保留原声，不使用这套铺满规则。清单要求声明 `contains_speech: false`；系统不做自动人声识别，声明不代表已验证。
 
-最终视频为 `data/runs/<任务编号>/final/video.mp4`；`manifest.json` 记录采用的镜头、音频、校验值和规则版本。缺少音频时保持 `awaiting_audio`。世界记忆增量只保存草案，不自动提交。第一版画面衔接采用顺序硬切，渐变、交叉淡化等剪辑转场暂未实现。
+最终视频为 `data/runs/<任务编号>/final/video.mp4`；`manifest.json` 记录采用的镜头、音频、校验值和规则版本。manual 缺少音频清单时保持 `awaiting_audio`；native 缺音轨会报错。世界记忆增量只保存草案，不自动提交。第一版画面衔接采用顺序硬切，渐变、交叉淡化等剪辑转场暂未实现。
 
 ## 验证
 
@@ -253,3 +291,21 @@ python --version
 `config/default.toml` 保存非敏感配置；`.env.example` 说明所需环境变量。制作参数优先级为命令行 > 事件输入 > 项目默认值；认证优先级为环境变量 > 显式指定的 CSV > 项目 `.env`。不在状态输出或任务档案中保存认证数据。
 
 API Key 不写进代码、提示词、运行日志或任务归档。用户提供的原始密钥 CSV 保持原位置，本项目未复制其内容。不要将该 CSV 提交到版本库。
+
+## MiniMax H3（2026-09-25）
+
+新任务的首段及续接段均使用 `MiniMax/MiniMax-H3`；Qwen 故事与视频理解模型保持 `qwen3.8-max`。新密钥读取位置见 `config/default.toml` 的 `credentials.csv_path`；配置文件不包含密钥本身。
+
+单镜4–15秒、默认768P、整片按内容安排且不超过60秒。当前合成器仅开放H3的768P档位；不能传入旧模型的720P或1080P。规划、分镜校验和视频提交使用同一模型时长约束。提示词最多7000字符，超出时明确停止，不截断内容。
+
+续接使用上一段实际剪辑末帧，经百炼临时OSS存储上传后随请求解析（有效48小时，重提时重新上传）。不向H3传入Wan专属的audio或prompt_extend参数。H3可能生成原生音轨，现有剪辑流程会去除，仍交付无声预览。旧任务保留原模型与制作参数快照，不自动迁移。
+
+接口依据：[MiniMax H3 百炼官方文档](https://help.aliyun.com/zh/model-studio/minimax-video-generation-api-reference)、[临时文件上传](https://help.aliyun.com/zh/model-studio/get-temporary-file-url/)。
+
+## 视频时长容差与原片复用
+
+模型原片与剪辑成片分开校验：原片最多允许短0.3秒；超长不超过目标时长的15%，且最多1秒。超出此范围会报告目标时长和实际时长。原片仍须通过解码、帧率、画幅和分辨率检查。
+
+原片通过后按目标时长剪辑；每段剪辑结果及最终成片允许正负0.3秒的时长误差。续接图片始终取实际剪辑视频的最后一帧，不按目标秒数推算帧号。
+
+若平台已成功、文件已下载，仅本地技术校验失败，恢复原任务会重新检查和复用该原片，保留任务编号与尝试次数，不重新提交视频。保存了文件校验值的原片若被修改则停止复用；仍不合格的文件保持失败，不自动付费重生成。

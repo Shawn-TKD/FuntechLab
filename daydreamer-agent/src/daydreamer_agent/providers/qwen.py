@@ -1,3 +1,4 @@
+from daydreamer_agent.providers.video_models import minimum_duration
 import json
 import math
 
@@ -6,6 +7,16 @@ from daydreamer_agent.providers.http import JsonHTTP
 
 
 def stage_contract(context):
+    if context.get("operation") == "story_assembly" and context.get("stage") == "story_plan":
+        minimum = minimum_duration(context.get("production_constraints", {}))
+        target = context.get("production_constraints", {}).get("duration_seconds")
+        cap = context.get("production_constraints", {}).get("max_duration_seconds")
+        bounds = (f"总长{target}秒时，镜头数须为{(target + 14) // 15}至{target // minimum}镜。" if type(target) is int else "")
+        if target is None and type(cap) is int:
+            bounds = f"没有固定总长；根据动作内容和节奏安排，总长不超过{cap}秒，每镜给出{minimum}至15秒整数建议。无需凑满上限，不套用12秒短片长度。"
+        return ("\n时长由程序最终配平。先按自然动作边界规划镜头，再给建议时长。" + bounds
+                + "同时遵守single_take和shot_limit；不要强行让每个beat单独占一镜，允许相邻beat共享一镜。"
+                "修正时按repair.field和repair.expected修改当前规划，保留主题、脚本和画风。")
     if context.get("operation") == "story_assembly" and context.get("stage") == "shot":
         return ("\nshot.prompt.画面内容必须是非空文字，描述经历者眼睛所见的当前动作与可见变化。"
                 "程序会在组装时补齐固定的第一人称视点声明；实际画面仍须遵守第一人称眼睛机位。"
@@ -13,9 +24,13 @@ def stage_contract(context):
     if context.get("operation") == "single_stage":
         stage = context.get("stage")
         if stage in {"theme", "script", "visual_style"}:
+            constraints = context.get("input", {}).get("production_constraints", {})
+            cap = constraints.get("max_duration_seconds")
+            timing = (f"本片总长按内容决定，上限{cap}秒；让动作有充分展开，不套用12秒模板，也不要为了凑满上限重复动作。"
+                      if constraints.get("duration_seconds") is None and type(cap) is int else "")
             return (f"\n当前是单阶段接口，完整故事规范仅用于查询字段含义。只返回status、{stage}、issues三个顶层字段。"
                     f"只生成一个{stage}方案，不要生成candidates、备选列表、其他阶段内容或完整故事包。"
-                    "source_refs必须从对应事件原样复制完整引用对象。")
+                    "source_refs必须从对应事件原样复制完整引用对象。" + timing)
         return ('\n只输出一份完整故事包，不返回candidates或多个备选故事。'
                 '若启用frame_chain，后镜续接结构必须为"continuity":{"start":{"from_shot":"前镜shot_id"},'
                 '"end":{"camera_position":"文字","view_direction":"文字","camera_motion":"文字",'

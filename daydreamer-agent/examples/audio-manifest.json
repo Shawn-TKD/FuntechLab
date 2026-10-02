@@ -1,0 +1,8 @@
+{
+  "contains_speech": false,
+  "music": {"path": "./music.wav", "gain": 0.25},
+  "sfx": [
+    {"path": "./bell.wav", "at_seconds": 0.5, "gain": 0.6},
+    {"path": "./leaves.wav", "at_seconds": 3.0, "gain": 0.4}
+  ]
+}

@@ -8,6 +8,8 @@ from daydreamer_agent.story.creativity import stage_seed
 from daydreamer_agent.story.diversity import ready, request, validate_candidates
 from daydreamer_agent.story.generator import STAGES
 from daydreamer_agent.story.assembly import generate_assembly
+from daydreamer_agent.story.timing import recover_timing_failure, validate_timing_constraints
+from daydreamer_agent.story.pacing import pacing_instruction
 
 
 def recover_viewpoint_failure(state):
@@ -55,6 +57,7 @@ def use_seed_only(path):
 
 
 def generate_seeded_story(run_path, inputs, skill, provider, progress=print):
+    validate_timing_constraints(inputs["production_constraints"])
     path = Path(run_path)
     snapshot = use_seed_only(path)
     state_path = path / "story/creation-attempts.json"
@@ -80,6 +83,11 @@ def generate_seeded_story(run_path, inputs, skill, provider, progress=print):
         write_json(state_path, state)
         if recovered:
             progress("已修复旧第一人称关键词校验，复用本轮已保存内容继续分镜，不更换seed或重置重开次数。")
+    if state.get("plan_timing_version") != 1:
+        recovered = recover_timing_failure(state)
+        write_json(state_path, state)
+        if recovered:
+            progress("已启用程序分配分镜时长，复用本轮主题、脚本、画风和规划，不重置重开次数。")
     while True:
         index = len(state["attempts"]) - 1
         current = state["attempts"][-1]
@@ -113,6 +121,9 @@ def generate_attempt(path, inputs, skill, provider, snapshot, seed, index, progr
     reused = read_json(reused_path) if index == 0 and reused_path.exists() else {}
     prior = {}
     for name, instruction in STAGES[:3]:
+        pacing = pacing_instruction(inputs["production_constraints"])
+        if pacing and name in {"theme", "script"}:
+            instruction += "\n" + pacing
         def validate(output):
             if not ready(output):
                 return output
@@ -131,4 +142,6 @@ def generate_attempt(path, inputs, skill, provider, snapshot, seed, index, progr
         if output["status"] != "ready":
             return output
         prior[name] = output
-    return generate_assembly(stage_path, inputs, prior, provider, seed, snapshot["policy"]["temperature"], progress)
+    config = read_json(path / "input/config.json")
+    return generate_assembly(stage_path, inputs, prior, provider, seed, snapshot["policy"]["temperature"], progress,
+                             sound_version=config.get("story", {}).get("sound_prompt_version", 0))

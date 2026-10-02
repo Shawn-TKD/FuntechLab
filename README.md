@@ -7,6 +7,15 @@
 
 `BOLD MAKER 2026` 影石 Insta360 `</智能影像>` 挑战赛 · **AI + 影像内容创作** · 第 27 组 **FuntechLab**
 
+## 2026-10-03 更新
+
+- 创作 Agent 默认使用 MiniMax H3（768P），逐段生成视频并以前段实际剪辑末帧续接；Wan 适配仍保留。
+- 自动时长优先 15–30 秒，按内容确定、最长 60 秒；保留必要动作和因果，减少重复移动与持续底噪。
+- 新任务保留模型原生声音，配乐可选且克制；网页提供声音开关、记住声音偏好，并支持历史成片轮播。
+- 补齐离线测试、示例与实现文档。已有任务沿用保存的参数；仓库更新不代表线上服务已部署。
+
+当前实现和使用方法以 [Agent 说明](daydreamer-agent/README.md) 为准；下方关键帧重绘、双轨输出等描述保留为赛事方案背景。
+
 ---
 
 ## 一、它做什么
@@ -28,7 +37,7 @@
 | 目录 | 是什么 | 技术栈 |
 | :--- | :--- | :--- |
 | [`heartbeat-camera/`](heartbeat-camera/) | **Android 采集端**。订阅 BLE 心率 → 迟滞阈值引擎 → 调 Insta360 SDK 控制 GO Ultra 开停拍；含素材上传链路 | Kotlin / Android SDK 35 / Insta360 SDK 2.1.5 |
-| [`daydreamer-agent/`](daydreamer-agent/) | **服务端创作 Agent**。生活视频或事件卡 → 事件理解 → Qwen 分阶段创作故事与分镜 → Wan 逐段生成视频 → 拼接归档 | Python 3（**仅标准库**）/ FFmpeg |
+| [`daydreamer-agent/`](daydreamer-agent/) | **服务端创作 Agent**。生活视频或事件卡 → 事件理解 → Qwen 分阶段创作故事与分镜 → MiniMax H3 逐段生成有声视频 → 拼接归档 | Python 3.12（**仅标准库**）/ FFmpeg |
 | [`web/`](web/) | **网页交互端**。移动端上传与故事查看界面 | 原生 JS / Node |
 | [`deploy/`](deploy/) | 服务器部署脚本（ECS 初始化、证书、探针、远程执行） | Shell / Python |
 | [`docs/`](docs/) | 方案架构、APK 构建交接说明、打包说明、设计稿 | Markdown / HTML |
@@ -91,7 +100,7 @@ python upload_server.py --port 8000 --out ./uploads
 
 ### ② 服务端创作 Agent
 
-需要：Python 3、FFmpeg + FFprobe、DashScope（阿里云百炼）API Key。
+需要：Python 3.12、FFmpeg + FFprobe、DashScope（阿里云百炼）API Key，以及所选模型的访问权限。
 
 ```bash
 cd daydreamer-agent
@@ -100,13 +109,13 @@ python daydreamer.py doctor # 检查配置与媒体工具，不调用网络
 python daydreamer.py demo   # 完全离线的故事与提示词演示
 
 # 从视频跑全流程：理解视频 → 事件卡 → 创作 → 逐段生成视频 → 拼接
-python daydreamer.py run --video "生活视频.mp4" --duration 12 --ratio 16:9 --resolution 720P
+python daydreamer.py run --video "生活视频.mp4" --ratio 16:9 --resolution 768P
 
 # 只提取生活事件卡
 python daydreamer.py -Extract "生活视频.mp4"
 ```
 
-> ⚠️ **`render` / `run` 的视频阶段会消耗 Wan 视频模型配额并产生费用。** 先用 `demo` 与 `plan` 验证。
+> ⚠️ **`render` / `run` 的视频阶段会消耗所选视频模型配额并产生费用。** 先用 `demo` 与 `plan` 验证。
 > API Key 不写进代码、提示词、日志或任务归档；密钥文件只在内存中读取，不入库。
 
 ### ③ 网页交互端

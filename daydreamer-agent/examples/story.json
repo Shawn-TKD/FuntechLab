@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "status": "ready",
+  "source_event_ids": ["demo-bike-01"],
+  "memory_basis": {"world_id": null, "version": null, "used_ids": []},
+  "assumptions": ["仅用于离线工程测试的虚构故事，不代表用户真实经历。"],
+  "theme": {
+    "title": "铃声折起的航道",
+    "statement": "我按响车铃，让路边落叶折成纸船，沿车轮经过的方向航行。",
+    "core_rule": "本次局部候选规则：车铃的振动让落叶折成小船，小船沿车轮带起的气流前行。",
+    "development": "从按铃到看见叶片折叠，再骑行带动小船前进。",
+    "boundary": "只围绕车铃、落叶与车轮气流展开；不引入其他魔法或生物。",
+    "reality_mapping": [{"event_id": "demo-bike-01", "real_detail": "骑车时按铃并经过落叶", "fantasy_translation": "铃声将落叶折成小船，骑行带起的风让它们航行", "retained_feature": "按铃、前行和路边落叶的关系", "source_refs": []}],
+    "contrast_and_interest": "寻常提醒行人的铃声成为折纸航道的启动信号。"
+  },
+  "script": [
+    {"beat_id": "beat-01", "source_event_ids": ["demo-bike-01"], "first_person_action": "我低头按响右手边的车铃。", "visible_change": "车铃旁前方地面的落叶沿叶脉折起，变成几只叶片小船。", "end_state": "我的右手回到车把，小船排列在前方地面。"},
+    {"beat_id": "beat-02", "source_event_ids": ["demo-bike-01"], "first_person_action": "我抬头并继续向前骑行。", "visible_change": "小船沿车轮带起的气流前进，形成一条弯曲的航道。", "end_state": "我沿着小船航道缓缓前进，小船仍在视野下方。"}
+  ],
+  "visual_style": {
+    "medium": "细腻的手工纸艺定格质感",
+    "form_and_space": "真实骑行尺度与小巧叶片纸船形成对比，叶脉折痕清晰",
+    "palette": "浅灰路面、暖黄落叶和深绿车把",
+    "materials": "纸纤维般的叶片、磨砂车把、哑光金属车铃",
+    "lighting": "柔和侧光突出折叠的层次，阴影方向稳定",
+    "motion_character": "叶片逐步折起，纸船随微风轻缓滑行，视点随骑行动作平稳移动",
+    "story_based_reason": "可见的折痕和纤维表现让按铃引发的折纸过程更容易理解。",
+    "stable_constraints": ["右侧哑光车铃", "深绿车把", "暖黄色叶片小船"],
+    "transitions": []
+  },
+  "audio_plan": {"music_direction": "以车铃、折叶、车轮声为主；首镜不配乐，纸船开始随气流前行后才可短暂轻入低音量器乐，不强制使用", "sound_motifs": ["车铃", "叶片折叠", "车轮滚动"], "speech_policy": "仅背景音乐与音效，无旁白、对白、演唱、人声采样或原始人声音轨。"},
+  "shots": [
+    {
+      "shot_id": "shot-01", "beat_ids": ["beat-01"], "source_event_ids": ["demo-bike-01"], "source_refs": [],
+      "duration_seconds": 3, "duration_basis": "confirmed",
+      "start_state": "我握住深绿车把，右手靠近铃铛，前方地面散落暖黄色叶片。",
+      "end_state": "右手回到车把，叶片小船排列在车前，视线仍略微向下。",
+      "transition_to_next": "承接车把与小船的位置，我逐渐抬头并向前骑行。",
+      "prompt": {"景别": "车把与前方地面的近景", "构图": "右手和哑光车铃在右下方，暖黄色落叶位于前方路面", "运镜手法": "第一人称略微低头看向车铃和前方路面，按铃时视线停稳", "画面内容": "第一人称视野中，右手按响车铃，前方几片落叶沿叶脉折成小船，右手回到深绿车把；手工纸艺定格质感，浅灰路面和暖黄叶片，柔和侧光突出折痕。"},
+      "audio": {"music": "本镜不使用背景音乐", "sfx": ["车铃一声", "轻微折纸声"], "continuity": "铃声自然衰减，折叶声随折叠结束；不在镜头边界起奏音乐"}
+    },
+    {
+      "shot_id": "shot-02", "beat_ids": ["beat-02"], "source_event_ids": ["demo-bike-01"], "source_refs": [],
+      "duration_seconds": 3, "duration_basis": "confirmed",
+      "start_state": "右手握住车把，暖黄色小船排列在前方地面，我的视线略微向下。",
+      "end_state": "我沿纸船形成的航道缓慢前进，小船持续在前方下侧滑行。",
+      "transition_to_next": null,
+      "prompt": {"景别": "车前路面的中景", "构图": "深绿车把保持在画面下缘，纸船由近至远沿浅灰路面排布", "运镜手法": "第一人称轻抬头，随身体向前骑行，保持前方纸船在视野中", "画面内容": "第一人称视野中，我向前骑行，车轮带起的气流推动暖黄色叶片纸船沿路面滑行，形成弯曲航道；手工纸艺定格质感，右下方哑光车铃稳定可见，柔和侧光强调船身折痕。"},
+      "audio": {"music": "前半段只保留车轮与叶片声；纸船形成航道后轻入两三个低音量拨弦音，航道稳定时轻退，不覆盖沙沙声", "sfx": ["加速时低存在感的轻微滚动声，不铺满风噪", "叶片近处掠过路面时短促沙沙声，经过后衰减"], "continuity": "仅承接必要动作尾音，不延续持续环境底声；配乐按航道稳定动作退出，叶片经过后的声音自然衰减，留出安静，不强行做结尾高潮"}
+    }
+  ],
+  "world_delta_draft": [],
+  "checks": [{"name": "离线示例", "result": "pass", "note": "人工编写的测试夹具，未调用模型或检查生成视频。"}],
+  "issues": []
+}

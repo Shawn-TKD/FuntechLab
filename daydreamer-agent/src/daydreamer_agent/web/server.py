@@ -10,7 +10,7 @@ import time
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from daydreamer_agent.web.store import Store, public_job
 
@@ -179,7 +179,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/jobs" and self.command == "GET":
                 return self.reply(200, {"jobs": [public_job(j) for j in store.list()]})
             if path == "/api/videos/next" and self.command == "GET":
-                job = store.next()
+                previous = parse_qs(urlsplit(self.path).query).get('previous', [''])[0]
+                if previous and not re.fullmatch(ID, previous):
+                    raise APIError(400, "上一条片段编号无效。")
+                job = store.next(previous_id=previous)
                 return self.reply(200, {"job": public_job(job) if job else None})
             match = re.fullmatch("/api/jobs/(" + ID + r")(/video|/played|/resume)?", path)
             if match:

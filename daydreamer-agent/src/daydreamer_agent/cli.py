@@ -1,15 +1,17 @@
 import argparse
+from copy import deepcopy
 import json
 from pathlib import Path
 import sys
 
 from daydreamer_agent.application.pipeline import Pipeline
-from daydreamer_agent.application.settings import Credentials, load_settings
+from daydreamer_agent.application.settings import Credentials, audio_policy, load_settings
 from daydreamer_agent.domain.errors import AgentError, ValidationError
 from daydreamer_agent.domain.events import normalize
 from daydreamer_agent.media.ffmpeg import Media
 from daydreamer_agent.memory.repository import load_memory, narrative_memory
-from daydreamer_agent.providers.wan import WanVideo
+from daydreamer_agent.providers.wan import BailianVideo
+from daydreamer_agent.providers.video_models import capabilities
 from daydreamer_agent.providers.qwen import Qwen
 from daydreamer_agent.prompts.video_compiler import RATIOS
 from daydreamer_agent.storage.files import read_json, write_json
@@ -50,7 +52,8 @@ def parser():
         else:
             sub.add_argument("--story", type=Path, required=True)
         if name == "run":
-            sub.add_argument("--audio", type=Path, help="可选本地音乐音效清单；缺省生成无声预览")
+            sub.add_argument("--audio", type=Path, help="本地音乐音效清单；选择手动配音并替换原生声音")
+            sub.add_argument("--audio-mode", choices=("native", "manual", "off"), help="声音来源；新任务默认保留模型原生音轨，旧任务沿用冻结配置")
             sub.add_argument("--wait", type=int, default=3600, help="视频阶段本次最长等待秒数，默认3600；超时可恢复")
     demo = commands.add_parser("demo", help="离线示例；不调用模型")
     demo.add_argument("--with-media", action="store_true", help="用测试画面和测试音调验证完整合成")
@@ -72,10 +75,20 @@ def parser():
     group = compose.add_mutually_exclusive_group()
     group.add_argument("--audio", type=Path, help="音频清单 JSON")
     group.add_argument("--preview", action="store_true", help="只生成无声预览")
+    compose.add_argument("--audio-mode", choices=("native", "manual", "off"), help="显式选择原生声音、手动配音或无声预览")
     return p
 
 
 def new_run(args, config, store, *, demo=False):
+    config = deepcopy(config)
+    requested_audio = getattr(args, "audio_mode", None)
+    if getattr(args, "audio", None):
+        if requested_audio not in (None, "manual"):
+            raise ValidationError("--audio 只能与 manual 模式一起使用。")
+        requested_audio = "manual"
+    if requested_audio:
+        config.setdefault("audio", {}).update(mode=requested_audio, preserve_generated_clip_audio=requested_audio == "native")
+    audio_policy(config)
     if not args.events:
         raise ValidationError("创建任务需要 --events。")
     raw = read_json(args.events)
@@ -83,6 +96,8 @@ def new_run(args, config, store, *, demo=False):
     production = config["production"]
     inputs = normalize(raw, memory=memory, duration=args.duration, ratio=args.ratio, resolution=args.resolution)
     constraints = inputs["production_constraints"]
+    constraints["video_model"] = config["video"]["model"]
+    spec = capabilities(config["video"]["model"])
     mode = args.continuity or constraints.get("continuity_mode", config["video"].get("continuity_mode", "frame_chain"))
     if mode not in {"single_take", "frame_chain"}:
         raise ValidationError("continuity_mode 必须为 single_take 或 frame_chain。")
@@ -94,15 +109,28 @@ def new_run(args, config, store, *, demo=False):
         defaults = config.get("workflow", {})
         for name, default in (("duration_seconds", 12), ("aspect_ratio", "16:9"), ("resolution", "720P")):
             if constraints.get(name) is None:
-                constraints[name] = defaults.get(name, default)
-        if type(constraints["duration_seconds"]) is not int or constraints["duration_seconds"] < 3:
-            raise ValidationError("一键生成的总时长必须为至少3秒的整数。")
-        if constraints["aspect_ratio"] not in RATIOS or constraints["resolution"] not in {"480P", "720P", "1080P"}:
+                value = defaults.get(name, default)
+                constraints[name] = None if value == "" else value
+        cap = defaults.get("max_duration_seconds")
+        if cap is not None:
+            constraints["max_duration_seconds"] = cap
+        duration = constraints["duration_seconds"]
+        if duration is not None and (type(duration) is not int or duration < spec["minimum"]):
+            raise ValidationError(f"一键生成的总时长必须为至少{spec['minimum']}秒的整数。")
+        if duration is None and cap is None:
+            raise ValidationError("自动时长需要配置workflow.max_duration_seconds。")
+        from daydreamer_agent.story.timing import validate_timing_constraints
+        validate_timing_constraints(constraints)
+        if constraints["aspect_ratio"] not in RATIOS or constraints["resolution"] not in spec["resolutions"]:
             raise ValidationError("一键生成需要有效画幅和分辨率。")
+    from daydreamer_agent.story.pacing import freeze_policy
+    from daydreamer_agent.story.timing import validate_timing_constraints
+    freeze_policy(constraints, config)
+    validate_timing_constraints(constraints)
     # Revalidate defaults too; no free-form configuration bypasses input validation.
     inputs = normalize(inputs)
-    if mode == "single_take" and constraints.get("duration_seconds") is not None and not 3 <= constraints["duration_seconds"] <= 15:
-        raise ValidationError("当前文生视频连续模式只支持3–15秒；更长的连续视频需启用首帧续接。")
+    if mode == "single_take" and constraints.get("duration_seconds") is not None and not spec["minimum"] <= constraints["duration_seconds"] <= 15:
+        raise ValidationError(f"当前文生视频连续模式只支持{spec['minimum']}–15秒；更长的连续视频需启用首帧续接。")
     original_memory = inputs.get("story_memory")
     inputs["story_memory"] = narrative_memory(original_memory)
     skill = load_skill(args.project / config["story"]["skill_directory"])
@@ -123,8 +151,8 @@ def run_generation(args, config, store, media, credentials, run_id):
     pipeline = Pipeline(store, media=media, progress=lambda message: print(message, flush=True))
     frozen = read_json(store.path(run_id) / "input/config.json")
     pipeline.story_provider = Qwen(credentials, frozen["story"]["model"], timeout=frozen["story"].get("request_timeout_seconds", 600))
-    pipeline.video_provider = WanVideo(credentials)
-    result = pipeline.run_full(run_id, audio_manifest=args.audio, wait_seconds=args.wait)
+    pipeline.video_provider = BailianVideo(credentials)
+    result = pipeline.run_full(run_id, audio_manifest=args.audio, audio_mode=getattr(args, "audio_mode", None), wait_seconds=args.wait)
     if result["status"] in {"preview_ready", "completed"}:
         target = args.project / frozen["storage"].get("delivery_directory", "outputs") / run_id
         result["delivery"] = export_delivery(store.path(run_id), target, preview=result["status"] == "preview_ready")
@@ -190,6 +218,8 @@ def run_command(args):
             raise ValidationError("恢复使用原任务输入；不要同时指定事件卡或制作参数。")
         if args.audio and not args.audio.is_file():
             raise ValidationError("找不到音频清单。")
+        if args.audio and args.audio_mode not in (None, "manual"):
+            raise ValidationError("--audio 只能与 manual 模式一起使用。")
         if args.video:
             from daydreamer_agent.application.video_workflow import validate_source_options
             validate_source_options(args, config)
@@ -221,7 +251,7 @@ def run_command(args):
     if args.command == "render":
         if not 0 <= args.wait <= 3600:
             raise ValidationError("--wait 必须在 0–3600 秒之间。")
-        pipeline.video_provider = WanVideo(Credentials.load(args.project, args.credentials_csv))
+        pipeline.video_provider = BailianVideo(Credentials.load(args.project, args.credentials_csv))
         return pipeline.render(args.run, wait_seconds=args.wait)
     if args.command in {"retry-shot", "regenerate-shot"}:
         pipeline.retry_shot(args.run, args.shot, regenerate=args.command == "regenerate-shot")
@@ -230,7 +260,7 @@ def run_command(args):
         pipeline.attach_task(args.run, args.shot, args.task_id)
         return store.shot(args.run, args.shot)
     if args.command == "compose":
-        return pipeline.compose(args.run, args.audio, preview=args.preview)
+        return pipeline.compose(args.run, args.audio, preview=args.preview, audio_mode=args.audio_mode)
 
 
 def main(argv=None):

@@ -26,6 +26,8 @@ class JsonHTTP:
         headers = {"Authorization": "Bearer " + self._key, "Content-Type": "application/json"}
         if async_video:
             headers["X-DashScope-Async"] = "enable"
+            if any(str(item.get("url", "")).startswith("oss://") for item in (payload or {}).get("input", {}).get("media", [])):
+                headers["X-DashScope-OssResourceResolve"] = "enable"
         data = None if payload is None else json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
         attempts = 3 if method == "GET" else 1
         for attempt in range(attempts):
